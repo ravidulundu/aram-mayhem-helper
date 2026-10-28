@@ -16,6 +16,126 @@ def load(name):
 
 
 class RecommendationTests(unittest.TestCase):
+    def test_recipe_extraction_preserves_zero_but_not_missing_prices_or_components(self):
+        raw = {
+            '1': {'name': 'Free', 'priceTotal': 0, 'from': []},
+            '2': {'name': 'Missing price', 'from': []},
+            '3': {'name': 'Missing component', 'priceTotal': 1000, 'from': [999]},
+            '4': {'name': 'Duplicate', 'priceTotal': 300, 'from': []},
+            '5': {'name': 'Duplicate', 'priceTotal': 500, 'from': []},
+            '6': {'name': 'Valid upgrade', 'priceTotal': 200, 'from': [1]},
+        }
+        with self.assertLogs(update_aramkit.logger, level='WARNING'):
+            recipes = update_aramkit.item_recipes(raw)
+        self.assertEqual(recipes['Free'], {'gold': 0, 'from': []})
+        self.assertEqual(recipes['Valid upgrade'], {'gold': 200, 'from': ['Free']})
+        for name in ['Missing price', 'Missing component', 'Duplicate']:
+            self.assertEqual(recipes[name]['cost_status'], 'unverified')
+        self.assertEqual(rules.remaining_gold(['Missing component'], [], recipes), 1000)
+        self.assertEqual(rules.remaining_gold(['Duplicate'], [], recipes), 500)
+
+    def test_mayhem_descriptions_replace_stale_text_and_preserve_fallback(self):
+        fallback = {'Mad Scientist': 'Each Round', 'Legacy Augment': 'Keep this text'}
+        source = {
+            '1': {
+                'name': 'Mad Scientist',
+                'tooltip': {
+                    'blocks': [{'spans': [{'text': 'On each Revive, you grow large or tiny.'}]}]
+                },
+            },
+            '2': {
+                'name': 'Warlock Juicebox',
+                'tooltip': {'blocks': [{'spans': [{'text': 'Gain Omnivamp.'}]}]},
+            },
+        }
+        result = update_aramkit.augment_descriptions(source, fallback)
+        self.assertEqual(result['Mad Scientist'], 'On each Revive, you grow large or tiny.')
+        self.assertEqual(result['Warlock Juicebox'], 'Gain Omnivamp.')
+        self.assertEqual(result['Legacy Augment'], 'Keep this text')
+        self.assertEqual(fallback['Mad Scientist'], 'Each Round')
+        self.assertNotIn('Warlock Juicebox', fallback)
+
+    def test_empty_mayhem_tooltip_does_not_erase_existing_description(self):
+        result = update_aramkit.augment_descriptions(
+            {'1': {'name': 'Mad Scientist', 'tooltip': {'blocks': []}}},
+            {'Mad Scientist': 'Existing explanation'},
+        )
+        self.assertEqual(result['Mad Scientist'], 'Existing explanation')
+
+    def test_augment_description_keeps_scaling_icon_meaning(self):
+        source = {
+            '1': {
+                'name': 'Warlock Juicebox',
+                'tooltip': {
+                    'blocks': [
+                        {
+                            'spans': [
+                                {'type': 'text', 'text': 'Gain (10%+3.5%'},
+                                {'type': 'icon', 'label': 'Ability Power'},
+                                {'type': 'text', 'text': ') Omnivamp.'},
+                            ]
+                        }
+                    ]
+                },
+            }
+        }
+        result = update_aramkit.augment_descriptions(source, {})
+        self.assertEqual(result['Warlock Juicebox'], 'Gain (10%+3.5% [Ability Power]) Omnivamp.')
+
+    def test_catalog_reads_actual_max_mana_resource_label(self):
+        source = {
+            '1': {
+                'name': 'Mana item',
+                'tooltip': {
+                    'blocks': [
+                        {
+                            'spans': [
+                                {'type': 'icon', 'label': 'Max Mana'},
+                                {'type': 'text', 'semantic': 'stat', 'text': '300'},
+                            ]
+                        }
+                    ]
+                },
+            }
+        }
+        catalog = update_aramkit.item_catalog(source)
+        self.assertEqual(catalog['Mana item']['stats'], {'mana': 300.0})
+
+    def test_augment_text_uses_readable_labels_for_internal_icon_names(self):
+        source = {
+            '1': {
+                'name': 'Example',
+                'tooltip': {
+                    'blocks': [
+                        {
+                            'spans': [
+                                {'type': 'icon', 'label': 'goldCoins'},
+                                {'type': 'icon', 'label': 'KiwiAugmentBurstingTeeth'},
+                            ]
+                        }
+                    ]
+                },
+            }
+        }
+        result = update_aramkit.augment_descriptions(source, {})
+        self.assertEqual(result['Example'], '[Gold] [Bursting Teeth]')
+
+    def test_shorter_tooltip_does_not_delete_existing_augment_mechanics(self):
+        existing = {
+            "Icathia's Fall": {'gives': ["Bami's Cinder"], 'combine': 'Void Immolation'},
+            'Tap Dancer': {'likes': 'onhit'},
+            'ADAPt': {'damage': 'AP'},
+        }
+        # Missing details do not establish removal. An explicit new conversion wins.
+        text = {'ADAPt': 'Convert Ability Power to Attack Damage.'}
+        with self.assertLogs(update_aramkit.logger, level='WARNING') as logs:
+            result = update_aramkit.augment_effects({}, set(), text, previous=existing)
+        self.assertEqual(result["Icathia's Fall"], existing["Icathia's Fall"])
+        self.assertEqual(result['Tap Dancer'], existing['Tap Dancer'])
+        self.assertEqual(result['ADAPt'], {'damage': 'AD'})
+        self.assertEqual(existing['ADAPt'], {'damage': 'AP'})
+        self.assertTrue(any('manual review' in message for message in logs.output))
+
     def setUp(self):
         self.tags = load('champion-tags.json')
         self.stats = load('item-stats.json')

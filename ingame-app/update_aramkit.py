@@ -29,6 +29,7 @@ import re
 import sys
 import time
 import urllib.request
+from collections.abc import Mapping
 
 logger = logging.getLogger(__name__)
 
@@ -230,15 +231,46 @@ def augment_tiers(d, augments):
     return out
 
 
-def tooltip_text(item):
+def tooltip_text(item, *, include_icons: bool = False) -> str:
     """Tooltip-ul de Mayhem ca text simplu, cate un paragraf pe rand."""
     lines = []
     for block in (item.get("tooltip") or {}).get("blocks", []):
-        text = "".join(sp.get("text") or "" for sp in block.get("spans", []))
+        parts = []
+        for span in block.get('spans', []):
+            label = span.get('label')
+            if include_icons and span.get('type') == 'icon' and isinstance(label, str):
+                label = {
+                    'goldCoins': 'Gold',
+                    'KiwiAugmentBurstingTeeth': 'Bursting Teeth',
+                }.get(label, label)
+                parts.append(f' [{label}] ')
+            else:
+                parts.append(span.get('text') or '')
+        text = ''.join(parts)
+        if include_icons:
+            text = re.sub(r'[ \t]+', ' ', text)
+            text = re.sub(r'\s+([),.;])', r'\1', text)
         if text.strip():
             lines.append(text.strip())
     # Riot scrie intervalele cu linie lunga (U+2013, ex. 150-200); in aplicatie le vrem cu cratima
     return "\n".join(lines).replace("\u2013", "-").replace("\u2014", "-")
+
+
+def augment_descriptions(
+    augments: Mapping[str, object], fallback: Mapping[str, str]
+) -> dict[str, str]:
+    """Prefer the selected Mayhem patch's text; retain other names as fallbacks."""
+    descriptions: dict[str, str] = dict(fallback)
+    for augment in augments.values():
+        if not isinstance(augment, dict):
+            raise TypeError('Augment resource entries must be objects')
+        name = augment.get('name')
+        if not isinstance(name, str) or not name.strip():
+            raise ValueError('Augment resource entries need a nonempty name')
+        text = tooltip_text(augment, include_icons=True)
+        if text:
+            descriptions[name] = text
+    return descriptions
 
 
 _STAT_LABELS = {"Armor": "armor", "Magic Resist": "mr", "Health": "hp"}
@@ -256,6 +288,7 @@ def item_catalog(items):
         "Armor": "armor",
         "Magic Resist": "mr",
         "Mana": "mana",
+        "Max Mana": "mana",
         "Ability Haste": "haste",
     }
     out = {}
@@ -338,6 +371,55 @@ def item_files(items):
     return desc, stats
 
 
+def item_recipes(items: Mapping[str, object]) -> dict[str, dict[str, object]]:
+    """Preserve legacy estimates, marking incomplete/ambiguous recipes as unverified."""
+    names: dict[str, str] = {}
+    for item_id, item in items.items():
+        if isinstance(item, dict) and isinstance(item.get('name'), str):
+            names[str(item_id)] = item['name']
+    recipes: dict[str, dict[str, object]] = {}
+    unverified: set[str] = set()
+    issues: list[str] = []
+    for item_id, item in items.items():
+        name = names.get(str(item_id))
+        if name is None or not isinstance(item, dict):
+            issues.append(f'item {item_id}: missing name/object')
+            continue
+        price = item.get('priceTotal')
+        parts = item.get('from')
+        # The resource omits `from` for leaf items.
+        parts = [] if parts is None else parts
+        try:
+            gold = (
+                int(price)
+                if isinstance(price, (int, float)) and not isinstance(price, bool)
+                else -1
+            )
+        except (OverflowError, ValueError):
+            gold = -1
+        if gold < 0 or gold != price:
+            unverified.add(name)
+            issues.append(f'{name}: missing/invalid price')
+            gold = 0  # Compatibility estimate only; never a trusted comparison quote.
+        if not isinstance(parts, list) or any(str(part) not in names for part in parts):
+            unverified.add(name)
+            issues.append(f'{name}: unresolved component')
+        parts = parts if isinstance(parts, list) else []
+        recipe: dict[str, object] = {
+            'gold': gold,
+            'from': [names[str(part)] for part in parts if str(part) in names],
+        }
+        if name in recipes and recipes[name] != recipe:
+            unverified.add(name)
+            issues.append(f'{name}: ambiguous item name')
+        recipes[name] = recipe
+    for name in unverified:
+        recipes[name]['cost_status'] = 'unverified'
+    if issues:
+        logger.warning('Unverified item recipes; manual review: %s', '; '.join(issues))
+    return recipes
+
+
 def names_in(text, item_names):
     """Itemii numiti in text, in ordinea aparitiei; cel mai lung nume castiga
     ("Hollow Radiance" nu e si "Radiance")."""
@@ -350,7 +432,13 @@ def names_in(text, item_names):
     return [n for _, n in sorted(found)]
 
 
-def augment_effects(augments, item_names, extra_desc=None):
+def augment_effects(
+    augments,
+    item_names,
+    extra_desc=None,
+    *,
+    previous: Mapping[str, Mapping[str, object]] | None = None,
+):
     """Ce schimba un augment la build, din textul lui (ARAMKit + augment-desc):
 
     range    "melee"/"ranged"   ("You are now melee": Draw Your Sword)
@@ -427,6 +515,20 @@ def augment_effects(augments, item_names, extra_desc=None):
             eff["likes"] = "crit"
         if eff:
             out[name] = eff
+    # A shorter display tooltip is not evidence that a supported mechanic was removed.
+    # Keep the established contract, but expose every inferred gap for manual review.
+    retained = []
+    for name, fields in (previous or {}).items():
+        current = out.setdefault(name, {})
+        for key, value in fields.items():
+            if key not in current:
+                current[key] = value
+                retained.append(f'{name}.{key}')
+    if retained:
+        logger.warning(
+            'Retained existing augment fields absent from current text; manual review: %s',
+            ', '.join(retained),
+        )
     return out
 
 
@@ -506,14 +608,7 @@ def main():
         json.dumps(istats, indent=1, sort_keys=True, ensure_ascii=False), encoding="utf-8"
     )
     # pret total + componente, ca sa stim cat mai ai de platit pana la build complet
-    names = {k: v["name"] for k, v in res["items"].items()}
-    recipes = {
-        it["name"]: {
-            "gold": it.get("priceTotal") or 0,
-            "from": [names[str(c)] for c in it.get("from") or () if str(c) in names],
-        }
-        for it in res["items"].values()
-    }
+    recipes = item_recipes(res['items'])
     (DATA / "item-recipes.json").write_text(
         json.dumps(recipes, indent=1, sort_keys=True, ensure_ascii=False), encoding="utf-8"
     )
@@ -523,10 +618,18 @@ def main():
         ),
         encoding="utf-8",
     )
-    effects = augment_effects(
-        res["augments"],
-        set(desc),
+    descriptions = augment_descriptions(
+        res['augments'],
         json.loads((DATA / "augment-desc.json").read_text(encoding="utf-8")),
+    )
+    (DATA / 'augment-desc.json').write_text(
+        json.dumps(descriptions, indent=1, sort_keys=True, ensure_ascii=False), encoding='utf-8'
+    )
+    effects = augment_effects(
+        res['augments'],
+        set(desc),
+        descriptions,
+        previous=json.loads((DATA / 'augment-effects.json').read_text(encoding='utf-8')),
     )
     (DATA / "augment-effects.json").write_text(
         json.dumps(effects, indent=1, sort_keys=True, ensure_ascii=False), encoding="utf-8"

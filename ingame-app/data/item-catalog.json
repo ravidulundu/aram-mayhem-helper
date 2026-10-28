@@ -76,7 +76,9 @@
    "categories": [
     "Mana"
    ],
-   "stats": {}
+   "stats": {
+    "mana": 300.0
+   }
   },
   "Ruby Crystal": {
    "acquisition": "shop",
@@ -450,6 +452,7 @@
    ],
    "stats": {
     "ap": 80.0,
+    "mana": 600.0,
     "haste": 20.0
    }
   },
@@ -537,6 +540,7 @@
    ],
    "stats": {
     "ap": 90.0,
+    "mana": 300.0,
     "haste": 10.0
    }
   },
@@ -597,7 +601,8 @@
     "ManaRegen"
    ],
    "stats": {
-    "hp": 200.0
+    "hp": 200.0,
+    "mana": 300.0
    }
   },
   "Diadem of Songs": {
@@ -611,7 +616,8 @@
     "AbilityHaste"
    ],
    "stats": {
-    "hp": 200.0
+    "hp": 200.0,
+    "mana": 1000.0
    }
   },
   "Archangel's Staff": {
@@ -625,6 +631,7 @@
    ],
    "stats": {
     "ap": 70.0,
+    "mana": 600.0,
     "haste": 25.0
    }
   },
@@ -641,6 +648,7 @@
    ],
    "stats": {
     "ad": 35.0,
+    "mana": 500.0,
     "haste": 15.0
    }
   },
@@ -698,6 +706,7 @@
    ],
    "stats": {
     "armor": 25.0,
+    "mana": 300.0,
     "haste": 10.0
    }
   },
@@ -794,6 +803,7 @@
    ],
    "stats": {
     "ap": 70.0,
+    "mana": 1000.0,
     "haste": 25.0
    }
   },
@@ -810,6 +820,7 @@
    ],
    "stats": {
     "ad": 35.0,
+    "mana": 1000.0,
     "haste": 15.0
    }
   },
@@ -975,7 +986,9 @@
     "Mana",
     "ManaRegen"
    ],
-   "stats": {}
+   "stats": {
+    "mana": 240.0
+   }
   },
   "Black Cleaver": {
    "acquisition": "shop",
@@ -1324,6 +1337,7 @@
    ],
    "stats": {
     "armor": 75.0,
+    "mana": 400.0,
     "haste": 20.0
    }
   },
@@ -1417,6 +1431,7 @@
    ],
    "stats": {
     "ap": 90.0,
+    "mana": 600.0,
     "haste": 15.0
    }
   },
@@ -1431,6 +1446,7 @@
    ],
    "stats": {
     "hp": 550.0,
+    "mana": 500.0,
     "haste": 15.0
    }
   },
@@ -1445,6 +1461,7 @@
    ],
    "stats": {
     "hp": 550.0,
+    "mana": 1000.0,
     "haste": 15.0
    }
   },
@@ -1971,6 +1988,7 @@
    ],
    "stats": {
     "ap": 40.0,
+    "mana": 300.0,
     "haste": 10.0
    }
   },
@@ -1985,7 +2003,8 @@
     "ManaRegen"
    ],
    "stats": {
-    "hp": 300.0
+    "hp": 300.0,
+    "mana": 375.0
    }
   },
   "Edge of Night": {
@@ -2353,6 +2372,7 @@
    ],
    "stats": {
     "ap": 100.0,
+    "mana": 600.0,
     "haste": 10.0
    }
   },
@@ -2369,7 +2389,8 @@
    ],
    "stats": {
     "ap": 45.0,
-    "hp": 350.0
+    "hp": 350.0,
+    "mana": 500.0
    }
   },
   "Bami's Cinder": {
@@ -2761,6 +2782,7 @@
     "hp": 200.0,
     "armor": 20.0,
     "mr": 20.0,
+    "mana": 200.0,
     "haste": 20.0
    }
   }

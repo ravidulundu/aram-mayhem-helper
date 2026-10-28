@@ -37,6 +37,8 @@ datas = [
     ("ingame-app/elixir.py", "ingame-app"),
     ("ingame-app/rules_engine.py", "ingame-app"),
     ("ingame-app/item_candidates.py", "ingame-app"),
+    ("ingame-app/item_costs.py", "ingame-app"),
+    ("ingame-app/decision_trace.py", "ingame-app"),
     ("ingame-app/build_scraper.py", "ingame-app"),
     ("ingame-app/build_icons.py", "ingame-app"),
     ("ingame-app/data/icons", "ingame-app/data/icons"),

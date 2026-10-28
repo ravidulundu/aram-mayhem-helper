@@ -6,8 +6,10 @@ nu doar echipa proprie -- exact ce ne trebuie pentru build adaptat la comp.
 """
 
 import json
+import math
 import pathlib
 import re
+from typing import Literal, TypedDict
 
 import requests
 import urllib3
@@ -15,6 +17,116 @@ import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 BASE = "https://127.0.0.1:2999/liveclientdata"
+
+
+class PlayerItem(TypedDict):
+    item_id: int | None
+    name: str | None
+    slot: int | None
+    count: int | None
+
+
+class PlayerSnapshot(TypedDict):
+    index: int
+    champion: str
+    team: Literal['ally', 'enemy', 'unknown']
+    is_local: bool
+    level: int | None
+    items: list[PlayerItem] | None
+
+
+class LiveContext(TypedDict):
+    schema: int
+    level: int | None
+    current_gold: float | None
+    champion_stats: dict[str, float]
+    players: list[PlayerSnapshot] | None
+
+
+# Only documented numeric local-player fields cross the recording boundary.
+CHAMPION_STAT_FIELDS = (
+    'abilityHaste',
+    'abilityPower',
+    'armor',
+    'armorPenetrationFlat',
+    'armorPenetrationPercent',
+    'attackDamage',
+    'attackRange',
+    'attackSpeed',
+    'bonusArmorPenetrationPercent',
+    'bonusMagicPenetrationPercent',
+    'cooldownReduction',
+    'critChance',
+    'critDamage',
+    'currentHealth',
+    'healthRegenRate',
+    'lifeSteal',
+    'magicLethality',
+    'magicPenetrationFlat',
+    'magicPenetrationPercent',
+    'magicResist',
+    'maxHealth',
+    'moveSpeed',
+    'physicalLethality',
+    'resourceMax',
+    'resourceRegenRate',
+    'resourceValue',
+    'spellVamp',
+    'tenacity',
+)
+
+
+def _integer(value: object) -> int | None:
+    return value if isinstance(value, int) and not isinstance(value, bool) and value >= 0 else None
+
+
+def _number(value: object) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    try:
+        number = float(value)
+    except OverflowError:
+        return None
+    return number if math.isfinite(number) else None
+
+
+def _inventory(items: object) -> list[PlayerItem] | None:
+    if not isinstance(items, list):
+        return None
+    result: list[PlayerItem] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        name = item_label(item)
+        result.append(
+            {
+                'item_id': _integer(item.get('itemID')),
+                'name': name if isinstance(name, str) else None,
+                'slot': _integer(item.get('slot')),
+                'count': _integer(item.get('count')),
+            }
+        )
+    return result
+
+
+def decision_context(active: object, players: list[PlayerSnapshot] | None) -> LiveContext:
+    """Capture current response fields, without carrying forward stale values or identities."""
+    active = active if isinstance(active, dict) else {}
+    raw_stats = active.get('championStats')
+    stats: dict[str, float] = {}
+    if isinstance(raw_stats, dict):
+        for key in CHAMPION_STAT_FIELDS:
+            value = _number(raw_stats.get(key))
+            if value is not None:
+                stats[key] = value
+    gold = _number(active.get('currentGold'))
+    return {
+        'schema': 1,
+        'level': _integer(active.get('level')),
+        'current_gold': gold if gold is not None and gold >= 0 else None,
+        'champion_stats': stats,
+        'players': players,
+    }
 
 
 _ids = None
@@ -93,7 +205,8 @@ def get_roster():
 
     allies, enemies, local_champ = [], [], None
     enemy_items, ally_items, own_items, spell_augments = [], [], [], []
-    for p in players:
+    snapshots: list[PlayerSnapshot] = []
+    for index, p in enumerate(players):
         champ = p.get("championName")
         if not champ:
             continue
@@ -103,6 +216,18 @@ def get_roster():
         )
         if is_local:
             local_champ = champ
+        snapshots.append(
+            {
+                'index': index,
+                'champion': champ,
+                'team': 'unknown'
+                if local_team not in ('ORDER', 'CHAOS') or p.get('team') not in ('ORDER', 'CHAOS')
+                else ('ally' if p.get('team') == local_team else 'enemy'),
+                'is_local': is_local,
+                'level': _integer(p.get('level')),
+                'items': _inventory(p.get('items')),
+            }
+        )
         if local_team is None:
             continue
 
@@ -142,6 +267,7 @@ def get_roster():
             "own_items": own_items,
             "spell_augments": spell_augments,
             "local_champion": local_champ,
+            'players': snapshots,
         }
 
     return {
@@ -152,4 +278,5 @@ def get_roster():
         "own_items": own_items,
         "spell_augments": spell_augments,
         "local_champion": local_champ,
+        'players': snapshots,
     }

@@ -22,10 +22,12 @@ import re
 import sys
 import threading
 import time
+import uuid
 
 import win32api
 
 import augment_tier
+import decision_trace
 import elixir
 import live_client
 import ocr_augments
@@ -91,7 +93,7 @@ def normalize_roster(raw, champ_id_map):
     def fix(name):
         return champ_id_map.get(name, name)
 
-    return {
+    normalized = {
         "allies": [fix(n) for n in raw.get("allies", [])],
         "enemies": [fix(n) for n in raw.get("enemies", [])],
         # numele de itemi vin deja afisabile, nu au nevoie de normalizare
@@ -101,6 +103,11 @@ def normalize_roster(raw, champ_id_map):
         "spell_augments": list(raw.get("spell_augments") or []),
         "local_champion": fix(raw["local_champion"]) if raw.get("local_champion") else None,
     }
+    if 'players' in raw:
+        normalized['players'] = [
+            {**player, 'champion': fix(player['champion'])} for player in raw['players']
+        ]
+    return normalized
 
 
 class Monitor:
@@ -144,6 +151,12 @@ class Monitor:
         self.augments = []  # ultimele augmente detectate pe ecran
         self.ocr_status = ""  # de ce e goala lista de mai sus, daca e
         self.status = ""
+        self.live_available = True
+        self._last_live_at = None
+        self._skip_saved_taken = False
+        self._decision_lock = threading.RLock()
+        self.decision = None
+        self.session = uuid.uuid4().hex
         self.stat_anvil = []  # shard-urile oferite acum, cu recomandare
 
         self._known_champion = None
@@ -156,7 +169,9 @@ class Monitor:
         self._last_stat_anvil = ()
         self._slot = {}
         self.live_range = None  # raza de atac din joc (Draw Your Sword o schimba)
+        self.live_context: live_client.LiveContext | None = None
         self.game_time = None  # secunde de joc, pentru indicatorul de elixir
+        self._last_game_time = None
         self._elixir = elixir.Tracker()
         self.elixir_until = 0.0
         self.headliner = None  # ales de tine din panou: jocul nu expune regula meciului
@@ -194,7 +209,12 @@ class Monitor:
         # pe loc; un salt de aur imediat dupa o oferta care il continea = l-ai luat
         self._aug_gold = {}
         for name, text in self._optional("augment-desc.json").items():
-            m = re.search(r"(\d+) Gold", str(text))
+            # Passive rewards can precede the immediate grant (Collector: 50 vs 250).
+            m = re.search(
+                r'\bGain\s*(?:\[[^\]\r\n]+\]\s*)?(\d+)\s+Gold\b',
+                str(text),
+                re.IGNORECASE,
+            )
             if m:
                 self._aug_gold[name] = int(m.group(1))
         self._recent_offer, self._recent_at = [], 0.0
@@ -399,20 +419,47 @@ class Monitor:
 
     def _roster_cycle(self):
         raw = live_client.get_roster()
-        if raw is None:
-            if self.phase != "waiting_for_game":
+        if raw is None or not raw.get("local_champion"):
+            self.live_available = False
+            if self.phase == "in_game":
+                self.status = "Live data unavailable; retrying"
+            if (
+                self.phase == "in_game"
+                and self._last_live_at is not None
+                and time.monotonic() - self._last_live_at >= 30.0
+                and not ocr_augments.find_game_window()
+            ):
                 self._reset()
             return
 
-        self.phase = "in_game"
+        gs = live_client.get("/gamestats")
+        game_time = gs.get("gameTime") if isinstance(gs, dict) else None
         ap = live_client.get("/activeplayer")
+        with self._decision_lock:
+            self._accept_roster(raw, ap, game_time)
+
+    def _accept_roster(self, raw, ap, game_time):
+        last_time = self._last_game_time
+        if (
+            isinstance(game_time, (int, float))
+            and last_time is not None
+            and last_time - game_time > 30
+        ):
+            self._reset()  # A new game can reuse the same champion and roster.
+        if isinstance(game_time, (int, float)):
+            self._last_game_time = game_time
+        self.live_available = True
+        self._last_live_at = time.monotonic()
+        if self.status.startswith("Live data unavailable"):
+            self.status = ""
+        self.phase = "in_game"
         if isinstance(ap, dict):
             self._note_activity(ap.get("level"), ap.get("currentGold"))
             self.live_range = (ap.get("championStats") or {}).get("attackRange")
         roster = normalize_roster(raw, self.champ_id_map)
         self.roster = roster
-        gs = live_client.get("/gamestats")
-        self.game_time = gs.get("gameTime") if isinstance(gs, dict) else None
+        self.live_context = live_client.decision_context(ap, roster.get('players'))
+        self.game_time = game_time
         self._elixir_bought(roster.get("own_items"))
         self.elixir_until = self._elixir.update(roster.get("own_items"), self.game_time)
         self._item_pick(roster.get("own_items"), time.monotonic())
@@ -429,7 +476,11 @@ class Monitor:
             self._game = game
             try:
                 saved = json.loads(TAKEN_FILE.read_text(encoding="utf-8"))
-                if saved.get("game") == game and not self.taken_augments:
+                if (
+                    not self._skip_saved_taken
+                    and saved.get("game") == game
+                    and not self.taken_augments
+                ):
                     self.taken_augments = list(saved.get("taken") or [])
             except (OSError, ValueError):
                 pass
@@ -447,7 +498,15 @@ class Monitor:
         self._recompute_build()
 
     def _ocr_cycle(self):
-        found, self.ocr_status = ocr_augments.detect_offered_augments(self.ocr_names)
+        session = self.session
+        found, status = ocr_augments.detect_offered_augments(self.ocr_names)
+        with self._decision_lock:
+            self._apply_ocr(session, found, status)
+
+    def _apply_ocr(self, session, found, status):
+        if session != self.session or self.phase != 'in_game':
+            return
+        self.ocr_status = status
         # pe ce card (0/1/2) sta fiecare nume: insigna trebuie sa cada peste
         # cardul ei, nu in ordinea in care a fost citit numele
         self._slot.update(
@@ -573,13 +632,26 @@ class Monitor:
         ]
 
     def _recompute_build(self):
+        with self._decision_lock:
+            self._compute_build()
+
+    @property
+    def data_stale(self):
+        last = self._last_live_at
+        return last is not None and time.monotonic() - last > 12.0
+
+    def _compute_build(self):
+        if not self.live_available or self.data_stale:
+            return
         if not self.roster or not self.build or not self.build.get("pool"):
             self.resolved_build = None
+            self.decision = None
             return
         import bundle
 
         data = bundle.get()
         extra = dict(self._static)
+        extra['bundle_version'] = data.get('version')
         if data.get("version") != extra.get("catalog_version"):
             extra["item_catalog"] = {}
         elif "item_catalog" in data:
@@ -592,6 +664,8 @@ class Monitor:
             (data.get("augment_samples") or {}).get(slug(champ), {}) if champ else {}
         )
         extra["live_range"] = self.live_range
+        if self.live_context is not None:
+            extra['live_context'] = self.live_context
         implied = rules_engine.implied_augment(champ, self.taken_augments, extra)
         if implied:
             self.taken_augments.append(implied)
@@ -603,16 +677,24 @@ class Monitor:
                 )
             except OSError:
                 pass
-        self.resolved_build = rules_engine.resolve_build(
-            self.build,
-            self.roster,
-            self.champion_tags,
-            self.rules,
-            self.item_stats,
-            self.taken_augments,
-            self.augment_items,
-            extra,
+        decision = decision_trace.Decision.capture(
+            {
+                'build': self.build,
+                'roster': self.roster,
+                'champion_tags': self.champion_tags,
+                'rule_set': self.rules,
+                'item_stats': self.item_stats,
+                'taken_augments': self.taken_augments,
+                'augment_items': self.augment_items,
+                'extra': extra,
+            },
+            self.session,
+            self.game_time,
         )
+        if not self.live_available or decision.session != self.session:
+            return
+        self.resolved_build = decision.result
+        self.decision = decision
 
     def anvil_advice(self):
         """Stat Anvil (750g): cand sa-l iei, cu aurul si cat mai ai pana la build complet."""
@@ -714,8 +796,19 @@ class Monitor:
         )
 
     def _reset(self):
+        with self._decision_lock:
+            self._reset_state()
+
+    def _reset_state(self):
+        self.live_context = None
+        self.live_available = False
+        self._last_live_at = None
+        self._skip_saved_taken = True
+        self.decision = None
+        self.session = uuid.uuid4().hex
         self.phase = "waiting_for_game"
         self.game_time = None
+        self._last_game_time = None
         self._elixir.reset()
         self.elixir_until = 0.0
         self.headliner = None
@@ -1513,6 +1606,7 @@ def selfcheck():
         ocr_augments.detect_offered_augments = lambda names, **k: (list(oferta), "test")
 
         mon = Monitor(champ_id_map, champion_tags, rules, global_augments)
+        mon.phase = 'in_game'
         mon.roster = {"local_champion": None}
         mon._ocr_cycle()
         assert len(mon.augments) == 2, mon.augments
@@ -1530,6 +1624,7 @@ def selfcheck():
         # nu vezi niciodata toate trei deodata (bug raportat in joc).
         OFFER_TTL = real_ttl
         mon2 = Monitor(champ_id_map, champion_tags, rules, global_augments)
+        mon2.phase = 'in_game'
         mon2.roster = {"local_champion": None}
         citiri = [["Goliath", "Multishot"], ["Goliath", "Overloaded"], ["Multishot"]]
         it = iter(citiri)
@@ -1549,6 +1644,7 @@ def selfcheck():
         # se adauge dupa el. Altfel cele vechi ramaneau primele si le taiau
         # pe cele noi la MAX_OFFER (bug raportat in joc).
         mon3 = Monitor(champ_id_map, champion_tags, rules, global_augments)
+        mon3.phase = 'in_game'
         mon3.roster = {"local_champion": None}
         secventa = [
             ["Goliath", "Multishot"],
@@ -1569,6 +1665,7 @@ def selfcheck():
         # ramas singur pe ecran, dar aurul a sarit cu 500 imediat dupa oferta
         aug_items = load_json("augment-items.json")
         mon4 = Monitor(champ_id_map, champion_tags, rules, global_augments, None, aug_items)
+        mon4.phase = 'in_game'
         mon4.roster = {"local_champion": None}
         ocr_augments.detect_offered_augments = lambda names, **k: (
             ["Upgrade Ravenous Hydra", "Goliath", "Upgrade Immolate"],
@@ -1590,6 +1687,7 @@ def selfcheck():
         # questurile nu dau aur, dar unele dau un item pe loc: Bami's Cinder
         # aparut gratis dupa oferta = Icathia's Fall. Cumparat (aur scazut) = nu.
         mon5 = Monitor(champ_id_map, champion_tags, rules, global_augments, None, aug_items)
+        mon5.phase = 'in_game'
         mon5.roster = {"local_champion": None}
         ocr_augments.detect_offered_augments = lambda names, **k: (
             ["Icathia's Fall", "Goliath", "Dual Wield"],

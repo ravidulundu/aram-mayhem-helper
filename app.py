@@ -26,7 +26,10 @@ import sys
 import threading
 import time
 from types import ModuleType
-from typing import ClassVar, NotRequired, TypedDict
+from typing import TYPE_CHECKING, ClassVar, NotRequired, TypedDict
+
+if TYPE_CHECKING:
+    import decision_trace
 
 import bug_report
 import champ_ocr
@@ -172,6 +175,8 @@ class Engine:
         self.augment_items = ingame.load_json("augment-items.json")
         self.headliners = ingame.load_json("headliners.json")
         self._top = (None, {})
+        self.journal: decision_trace.Journal | None = None
+        self._state_decision: decision_trace.Decision | None = None
         self.reader = champ_ocr.ChampSelectReader(
             lcu.load_champion_data().values(),
             lambda: lcu_mon.phase == "in_mayhem_select" and ingame_mon.phase != "in_game",
@@ -282,6 +287,12 @@ class Engine:
 
     def in_game(self):
         m = self.mon
+        decision = getattr(m, 'decision', None)
+        self._state_decision = decision
+        stale = getattr(m, 'data_stale', False)
+        availability = (
+            'stale' if stale else ('fresh' if getattr(m, 'live_available', True) else 'retrying')
+        )
         roster = m.roster or {}
         champ = roster.get("local_champion")
         out = {
@@ -298,8 +309,14 @@ class Engine:
             "anvil": self.anvil(),
             "top": self.top_augments(champ),
             "build": None,
+            "decision_id": decision.id if decision else None,
+            "availability": availability,
         }
-        rb = m.resolved_build
+        if stale:
+            out['status'] = 'Live data is stale; purchase advice paused'
+        if self.journal and self.journal.error:
+            out['status'] = f"{out['status']} {self.journal.error}".strip()
+        rb = None if stale else (decision.result if decision else m.resolved_build)
         if rb:
             full = rb.get("full")
             items = rb["core"] + rb["picks"]
@@ -336,6 +353,9 @@ class Engine:
             "picked": m.headliner,
             "info": self.headliners,
         }
+        if stale:
+            out['anvil_buy'] = None
+            out.pop('elixir', None)
         return out
 
     # --- unde sunt jocul, clientul si cardurile ----------------------------
@@ -455,12 +475,19 @@ class Engine:
         last = None
         while not stop.is_set():
             try:
-                line = json.dumps(self.state(), separators=(",", ":"), sort_keys=True)
+                state = self.state()
+                line = json.dumps(state, separators=(",", ":"), sort_keys=True)
                 if line != last:
                     with _out_lock:
                         sys.stdout.write(line + "\n")
                         sys.stdout.flush()
                     last = line
+                    # This records engine-to-UI delivery, not a renderer acknowledgement.
+                    if self.journal and self._state_decision and state['view'] == 'in_game':
+                        data = state['data']
+                        self.journal.submit(
+                            self._state_decision, data.get('build'), data['availability']
+                        )
             except (OSError, ValueError):
                 stop.set()  # interfata a disparut: n-are rost sa mai rulam
             except Exception as e:
@@ -750,13 +777,17 @@ def main():
     ingame_mon.run()
 
     engine = Engine(lcu, lcu_mon, ingame, ingame_mon)
+    import decision_trace
+
+    engine.journal = decision_trace.Journal(HOME / 'decision-logs')
     engine.reader.run()
     counts = {k: len(list((ICONS / k).glob("*.png"))) for k in ("champions", "augments")}
     counts["builds"] = len(list((ROOT / "ingame-app" / "data" / "builds").glob("*.json")))
     emit({"t": "hello", "version": VERSION, "icons": str(ICONS), "counts": counts})
 
     stop = threading.Event()
-    threading.Thread(target=engine.loop, args=(stop,), daemon=True).start()
+    engine_thread = threading.Thread(target=engine.loop, args=(stop,), daemon=True)
+    engine_thread.start()
     if "--no-update" not in sys.argv:
         threading.Thread(target=maintenance, daemon=True).start()
 
@@ -781,6 +812,8 @@ def main():
     engine.reader.stop.set()
     lcu_mon.stop.set()
     ingame_mon.stop.set()
+    engine_thread.join(timeout=3)
+    engine.journal.close()
 
 
 if __name__ == "__main__":

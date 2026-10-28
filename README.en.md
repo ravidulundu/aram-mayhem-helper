@@ -180,15 +180,39 @@ ui/renderer/                   Main panel, badges, tooltips and report UI
 ui/test/                       Mock engine and fixture generator
 lcu-app/                       LCU access and champion-select data
 ingame-app/live_client.py       Live match data access
+ingame-app/decision_trace.py    Local decision journal and offline replay
+ingame-app/item_costs.py        Observational item completion-cost comparison
 ingame-app/rules_engine.py      Item selection and purchase/sale rules
 ingame-app/bundle.py            Validated build-bundle cache and reload
 ingame-app/update_aramkit.py    Current Mayhem data generator
 ingame-app/test_recommendations.py  Resolver and bundle regression tests
+ingame-app/test_item_costs.py    Recipe and cost-comparison regression tests
 test_data_sync.py              Download/write regression tests
+test_decision_evidence.py      Recovery, journal and replay regression tests
 overwolf-app/                  Historical alternative implementation
 ```
 
 The active desktop entry point is the root `app.py` plus `ui/`.
+
+## Local decision evidence and recovery
+
+The source engine now keeps the last known state during short Live Client API outages. It marks a failed read immediately, stops recalculating advice while data is unavailable and hides purchase advice after 12 seconds without a successful roster read. After 30 seconds without data and with no game window, it resets the session. A game-clock rollback also clears the previous game's selections. These thresholds describe recovery behavior, not a guaranteed four-second update deadline.
+
+When a decision or its delivered purchase advice changes, the desktop engine writes local JSONL evidence in `%APPDATA%/ARAM Mayhem Helper/decision-logs` (or `ARAM_HOME/decision-logs`). Running the Python engine directly defaults to `decision-logs` in the checkout. Each entry contains captured resolver inputs/data, chosen augments, game time, output, a decision/session identifier and the build sent through stdout. It excludes the player's Riot ID and LCU credentials. This proves engine delivery, not successful rendering on screen.
+
+Disk writes use a bounded background queue. Retention is at most four 8 MiB files; overflow/write errors are reported on stderr and in panel status. Files can contain truncated final lines after an abnormal exit. Offline replay reports malformed lines and recommendation differences with a nonzero exit code; it uses captured data with the current resolver and makes no game/API requests:
+
+```powershell
+.venv/Scripts/python.exe ingame-app/decision_trace.py "$env:APPDATA/ARAM Mayhem Helper/decision-logs/decisions.jsonl"
+```
+
+This feature requires the updated source engine (`START.bat`) or a newly built engine. On the development machine, the existing desktop shortcut now opens this checkout's Electron runtime and `.venv` engine with `--no-update`; subsequent verified source changes take effect on the next launch without running a batch file or reinstalling. An already-running process needs a restart outside a game. The original shortcut is backed up under `dist/backup-desktop-source-2026-10-28`, and installed binaries remain intact. This is a local setup, not a GitHub automatic-update channel. Logs are bounded diagnostic evidence, not a complete purchase history or a guarantee of optimal recommendations.
+
+Decision records also carry versioned `extra.live_context`: current-response level/gold, documented numeric local champion stats and anonymous per-player inventories with item IDs, slots and counts. Missing scalar values are `null`, missing stat fields are omitted and unavailable inventories are `null`; zero remains a real observed value. Snapshot indices are not stable player identities. The existing ranking ignores this observational context, and older schema-1 records still replay. Enemy detailed champion stats are not inferred, and separate API responses are not an atomic game snapshot. Recording frequency can increase as live stats change; retention remains bounded. Running instances need a restart outside a match to load this change.
+
+The data-usage audit and verified Mayhem description, gold-parsing and mana-label fixes are documented in the [technical report](docs/recommendation-data-audit.md). These fixes do not introduce a new item-ranking model.
+
+Records with recipes optionally include `cost_comparison`: full nominal price, owned-component credit, remaining gold and shortfall against observed gold. Alternatives are evaluated independently; the cheapest completion does not change recommendation order. Missing, cyclic, unverified or patch-mismatched recipes produce unknown quotes rather than assumed free items. Replay verifies this field when present and remains compatible with older logs. Discounts, shop availability and purchase-slot feasibility are not simulated.
 
 ## Attribution and license
 

@@ -3,6 +3,7 @@ import pathlib
 import unittest
 
 import bundle
+import live_client
 import rules_engine
 
 DATA = pathlib.Path(__file__).with_name('data')
@@ -297,19 +298,34 @@ class AdaptiveItemsTests(unittest.TestCase):
             build = json.loads(path.read_text(encoding='utf-8'))
             for enemies, enemy_items in scenarios:
                 for own in [build['core'][:2], (build.get('fourth') or [])[:1]]:
+                    roster = {
+                        'local_champion': build['champion'],
+                        'own_items': own,
+                        'enemies': enemies,
+                        'enemy_items': enemy_items,
+                    }
                     result = rules_engine.resolve_build(
                         build,
-                        {
-                            'local_champion': build['champion'],
-                            'own_items': own,
-                            'enemies': enemies,
-                            'enemy_items': enemy_items,
-                        },
+                        roster,
                         self.tags,
                         self.rules,
                         self.stats,
                         extra=dict(self.extra, item_catalog=catalog),
                     )
+                    context = live_client.decision_context(
+                        {'level': 18, 'currentGold': 5000, 'championStats': {'abilityPower': 900}},
+                        None,
+                    )
+                    observed = rules_engine.resolve_build(
+                        build,
+                        roster,
+                        self.tags,
+                        self.rules,
+                        self.stats,
+                        extra=dict(self.extra, item_catalog=catalog, live_context=context),
+                    )
+                    if observed != result:
+                        failures.append((build['champion'], 'context changed ranking'))
                     plan = self.planned(result)
                     names = [e['item'] for e in plan]
                     valid = len(plan) == 6 and len(set(names)) == len(names)

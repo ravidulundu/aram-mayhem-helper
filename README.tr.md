@@ -180,15 +180,39 @@ ui/renderer/                   Ana panel, rozetler, ipuçları ve bildirim aray�
 ui/test/                       Taklit motoru ve senaryo üreticisi
 lcu-app/                       LCU erişimi ve şampiyon seçimi verileri
 ingame-app/live_client.py       Canlı maç verisine erişim
+ingame-app/decision_trace.py    Yerel karar kaydı ve çevrimdışı tekrar
+ingame-app/item_costs.py        Gözlemsel eşya tamamlama maliyeti karşılaştırması
 ingame-app/rules_engine.py      Eşya seçimi, satın alma ve satış kuralları
 ingame-app/bundle.py            Doğrulanmış build paketi önbelleği ve yenileme
 ingame-app/update_aramkit.py    Güncel Mayhem veri üreticisi
 ingame-app/test_recommendations.py  Motor ve paket regresyon testleri
+ingame-app/test_item_costs.py    Tarif ve maliyet karşılaştırması regresyon testleri
 test_data_sync.py              İndirme/yazma regresyon testleri
+test_decision_evidence.py      Kurtarma, kayıt ve tekrar regresyon testleri
 overwolf-app/                  Tarihsel alternatif uygulama
 ```
 
 Etkin masaüstü giriş noktası kökteki `app.py` ve `ui/` dizinidir.
+
+## Yerel karar kaydı ve bağlantı kurtarma
+
+Kaynak motor, kısa Live Client API kesintilerinde son durumu korur. Başarısız okuma hemen belirtilir, veri yokken öneri yeniden hesaplanmaz ve son başarılı kadro okumasından 12 saniye sonra satın alma önerileri gizlenir. Veri 30 saniyedir yoksa ve oyun penceresi de bulunamıyorsa oturum sıfırlanır. Oyun saatinin geriye dönmesi de önceki maçın seçimlerini temizler. Bunlar kurtarma eşikleridir; güncellemenin kesinlikle dört saniyede tamamlanacağı anlamına gelmez.
+
+Karar veya arayüze gönderilen satın alma önerisi değiştiğinde masaüstü motoru `%APPDATA%/ARAM Mayhem Helper/decision-logs` altında (veya `ARAM_HOME/decision-logs`) yerel JSONL kaydı tutar. Python motoru doğrudan çalıştırılırsa varsayılan konum proje kökündeki `decision-logs` klasörüdür. Her kayıt, hesaplamada kullanılan girdileri/verileri, seçilmiş augmentleri, oyun zamanını, sonucu, karar/oturum kimliğini ve stdout üzerinden gönderilen eşya planını içerir. Oyuncunun Riot ID'si ve LCU kimlik bilgileri kaydedilmez. Kayıt, motorun gönderimini kanıtlar; ekranda çizildiğini kanıtlamaz.
+
+Disk yazımı sınırlı bir arka plan kuyruğunda yapılır. En fazla dört adet 8 MiB dosya tutulur; kuyruk taşması/yazma hatası stderr ve panel durumunda bildirilir. Beklenmedik kapanış son satırı yarım bırakabilir. Çevrimdışı tekrar, bozuk satırları ve öneri farklarını sıfırdan farklı çıkış koduyla bildirir; kaydedilen verileri mevcut hesaplama motoruyla kullanır, oyun/API isteği yapmaz:
+
+```powershell
+.venv/Scripts/python.exe ingame-app/decision_trace.py "$env:APPDATA/ARAM Mayhem Helper/decision-logs/decisions.jsonl"
+```
+
+Bu özellik güncel kaynak motoru (`START.bat`) veya yeniden derlenmiş motoru gerektirir. Geliştirme bilgisayarında mevcut masaüstü simgesi artık bu projenin Electron uygulamasını ve `.venv` motorunu `--no-update` ile açar; sonraki doğrulanmış kaynak değişiklikleri, batch dosyası çalıştırmadan veya yeniden kurmadan bir sonraki açılışta kullanılır. Zaten çalışan uygulamanın oyun dışında yeniden açılması gerekir. Eski kısayol `dist/backup-desktop-source-2026-10-28` altında yedeklidir; kurulu uygulama dosyaları korunur. Bu yerel bir ayardır, GitHub otomatik güncelleme kanalı değildir. Kayıtlar sınırlı tanılama kanıtıdır; eksiksiz satın alma geçmişi veya en iyi öneri garantisi değildir.
+
+Karar kayıtları artık sürümlü `extra.live_context` alanını da taşır: güncel yanıttaki seviye/altın, belgelenmiş sayısal yerel şampiyon istatistikleri ve eşya ID'si, slotu, adedi korunan anonim oyuncu envanterleri. Eksik tekil değerler `null`, eksik istatistik alanları atlanmış, alınamayan envanterler `null` olur; sıfır gerçek gözlemlenen değerdir. Sıra numaraları kalıcı oyuncu kimliği değildir. Mevcut sıralama bu gözlemsel bağlamı kullanmaz; eski şema-1 kayıtları da tekrar oynatılır. Rakibin ayrıntılı şampiyon istatistikleri tahmin edilmez; ayrı API yanıtları aynı ana ait atomik bir görüntü değildir. İstatistikler değiştikçe kayıt sıklığı artabilir; saklama sınırı korunur. Çalışan uygulama bu değişikliği oyun dışında yeniden açıldığında yükler.
+
+Veri kullanım denetimi ve doğrulanan Mayhem açıklaması, altın ayrıştırma ve mana etiketi düzeltmeleri [teknik raporda](docs/recommendation-data-audit.md) açıklanıyor. Bu düzeltmeler yeni bir eşya sıralama modeli getirmiyor.
+
+Tarif içeren kayıtlara isteğe bağlı `cost_comparison` eklenir: tam nominal fiyat, eldeki bileşen kredisi, kalan maliyet ve gözlemlenen altına göre eksik tutar. Alternatifler bağımsız hesaplanır; en ucuz tamamlama öneri sırasını değiştirmez. Eksik, döngüsel, doğrulanmamış veya yaması uyuşmayan tariflerde bedava eşya varsaymak yerine maliyet bilinmiyor olarak kaydedilir. Tekrar oynatma, alan varsa onu da doğrular; eski kayıtlar uyumludur. İndirimler, mağaza erişimi ve satın alma için slot uygunluğu simüle edilmez.
 
 ## Atıf ve lisans
 

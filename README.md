@@ -207,15 +207,39 @@ ui/renderer/                   Panou, insigne, explicații și formular de rapor
 ui/test/                       Motor simulat și generator de scenarii
 lcu-app/                       Acces LCU și date de champion select
 ingame-app/live_client.py       Acces la datele meciului în curs
+ingame-app/decision_trace.py    Jurnal local și redare offline a deciziilor
+ingame-app/item_costs.py        Comparație observațională a costurilor de finalizare
 ingame-app/rules_engine.py      Selectarea, cumpărarea și vânzarea obiectelor
 ingame-app/bundle.py            Cache validat și reîncărcarea pachetelor de build
 ingame-app/update_aramkit.py    Generatorul curent de date Mayhem
 ingame-app/test_recommendations.py  Teste de regresie pentru motor și pachete
+ingame-app/test_item_costs.py    Teste pentru rețete și comparația costurilor
 test_data_sync.py              Teste pentru descărcare și scriere
+test_decision_evidence.py      Teste pentru recuperare, jurnal și redare
 overwolf-app/                  Implementare alternativă istorică
 ```
 
 Punctul de intrare desktop activ este `app.py` din rădăcină împreună cu `ui/`.
+
+## Jurnal local de decizii și recuperarea conexiunii
+
+Motorul din surse păstrează ultima stare cunoscută în timpul întreruperilor scurte ale Live Client API. O citire eșuată este semnalată imediat, recomandările nu sunt recalculate fără date, iar sfaturile de cumpărare sunt ascunse după 12 secunde fără o citire reușită a echipelor. După 30 de secunde fără date și în absența ferestrei jocului, sesiunea este resetată. Revenirea ceasului de joc la o valoare anterioară șterge și alegerile meciului precedent. Acestea sunt praguri de recuperare, nu o garanție că actualizarea se termină în patru secunde.
+
+La schimbarea deciziei sau a planului transmis interfeței, motorul desktop scrie dovezi JSONL locale în `%APPDATA%/ARAM Mayhem Helper/decision-logs` (sau `ARAM_HOME/decision-logs`). Motorul Python pornit direct folosește implicit `decision-logs` din rădăcina proiectului. Fiecare înregistrare include datele și intrările capturate, augmentele alese, timpul jocului, rezultatul, identificatorul deciziei/sesiunii și planul trimis prin stdout. Riot ID-ul jucătorului și credențialele LCU nu sunt înregistrate. Jurnalul dovedește transmiterea de către motor, nu desenarea pe ecran.
+
+Scrierea pe disc folosește o coadă limitată în fundal. Se păstrează cel mult patru fișiere de câte 8 MiB; depășirea cozii sau erorile de scriere sunt raportate pe stderr și în starea panoului. O închidere anormală poate lăsa ultima linie incompletă. Redarea offline raportează liniile invalide și diferențele de recomandare printr-un cod de ieșire nenul; folosește datele capturate cu motorul de calcul curent, fără cereri către joc/API:
+
+```powershell
+.venv/Scripts/python.exe ingame-app/decision_trace.py "$env:APPDATA/ARAM Mayhem Helper/decision-logs/decisions.jsonl"
+```
+
+Funcția necesită motorul actualizat din surse (`START.bat`) sau un motor recompilat. Pe calculatorul de dezvoltare, scurtătura existentă de pe desktop pornește acum Electron și motorul `.venv` din acest proiect cu `--no-update`; modificările ulterioare verificate sunt folosite la următoarea pornire, fără fișier batch sau reinstalare. Un proces deja pornit trebuie repornit în afara unui meci. Scurtătura originală este salvată în `dist/backup-desktop-source-2026-10-28`, iar fișierele instalate sunt păstrate. Aceasta este o configurare locală, nu un canal de actualizare automată GitHub. Jurnalele sunt dovezi de diagnostic cu retenție limitată, nu un istoric complet al achizițiilor sau o garanție a recomandărilor optime.
+
+Jurnalele includ și `extra.live_context` versionat: nivelul/aurul din răspunsul curent, statisticile numerice documentate ale campionului local și inventare anonime per jucător, cu ID, slot și număr de obiecte. Valorile scalare lipsă sunt `null`, statisticile lipsă sunt omise, iar inventarele indisponibile sunt `null`; zero rămâne o valoare observată. Indicii descriu poziții în instantaneu, nu identități stabile. Clasarea existentă ignoră acest context observațional; înregistrările vechi cu schema 1 rămân compatibile cu redarea. Statisticile detaliate ale inamicilor nu sunt deduse, iar răspunsurile API separate nu formează un instantaneu atomic. Frecvența înregistrării poate crește când statisticile se schimbă; retenția rămâne limitată. Aplicația pornită încarcă schimbarea la următoarea repornire, în afara unui meci.
+
+Auditul utilizării datelor și corecțiile verificate pentru descrierile Mayhem, citirea aurului și eticheta de mană sunt documentate în [raportul tehnic](docs/recommendation-data-audit.md). Aceste corecții nu introduc un nou model de clasare a obiectelor.
+
+Înregistrările cu rețete includ opțional `cost_comparison`: preț nominal complet, credit pentru componentele deținute, aur rămas și diferența față de aurul observat. Alternativele sunt evaluate independent; cea mai ieftină finalizare nu schimbă ordinea recomandată. Rețetele lipsă, ciclice, neverificate sau incompatibile cu patch-ul produc valori necunoscute, nu prețuri gratuite presupuse. Redarea verifică și acest câmp când există; jurnalele vechi rămân compatibile. Reducerile de preț, disponibilitatea în magazin și spațiul din inventar nu sunt simulate.
 
 ## Licenta
 
