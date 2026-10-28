@@ -267,7 +267,12 @@ def resolve_build(
         expanded = counter_pool(
             build, roster, champion_tags, catalog, extra.get("effects") or {}, taken_augments, stats
         )
-    pool = list(dict.fromkeys(expanded + list(build.get("pool") or [])))
+    # Owned counters still need protection when refreshed builds omit them.
+    pool = list(
+        dict.fromkeys(
+            expanded + list(build.get("pool") or []) + list(roster.get("own_items") or [])
+        )
+    )
     hits = evaluate_rules(roster, champion_tags, rule_set, [p for p in pool if ok(p)], item_stats)
     hot = {h["item"]: h["reason"] for h in hits}
 

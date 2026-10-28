@@ -247,6 +247,34 @@ class AdaptiveItemsTests(unittest.TestCase):
         if result['sell']:
             self.assertNotEqual("Mercury's Treads", result['sell']['sell'])
 
+    def test_owned_boots_use_enemy_rules_even_when_absent_from_source_pool(self):
+        build = {
+            'core': ['Heartsteel'],
+            'pool': ['Heartsteel', 'Force of Nature'],
+        }
+        own = [
+            'Heartsteel',
+            "Mercury's Treads",
+            'Unending Despair',
+            "Warmog's Armor",
+            'Thornmail',
+            "Randuin's Omen",
+        ]
+        for enemies, protect in [(['Ahri', 'Lux', 'Veigar'], True), ([], False)]:
+            with self.subTest(enemies=enemies):
+                result = rules_engine.resolve_build(
+                    build,
+                    {'local_champion': 'Leona', 'own_items': own, 'enemies': enemies},
+                    self.tags,
+                    self.rules,
+                    self.stats,
+                )
+                self.assertIsNotNone(result['sell'])
+                if protect:
+                    self.assertNotEqual("Mercury's Treads", result['sell']['sell'])
+                else:
+                    self.assertEqual("Mercury's Treads", result['sell']['sell'])
+
     def test_damage_conversion_augments_change_counter_family(self):
         for champion, augment, expected in [
             ('Garen', 'ADAPt', 'Morellonomicon'),
