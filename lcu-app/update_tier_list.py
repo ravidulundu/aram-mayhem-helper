@@ -16,8 +16,10 @@ import sys
 import tier_list
 
 URL = "https://u.gg/lol/aram-mayhem-tier-list"
-UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-      "(KHTML, like Gecko) Chrome/120.0 Safari/537.36")
+UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/120.0 Safari/537.36"
+)
 
 
 def parse_page(text):
@@ -47,12 +49,16 @@ def merge(old, patch, tiers):
     """Fisierul nou: patch-ul vechi trece in "previous" doar daca patch-ul s-a schimbat."""
     if old and old["patch"] == patch:
         return {"patch": patch, "tiers": tiers, "previous": old.get("previous")}
-    return {"patch": patch, "tiers": tiers,
-            "previous": {"patch": old["patch"], "tiers": old["tiers"]} if old else None}
+    return {
+        "patch": patch,
+        "tiers": tiers,
+        "previous": {"patch": old["patch"], "tiers": old["tiers"]} if old else None,
+    }
 
 
 def main():
     from playwright.sync_api import sync_playwright
+
     with sync_playwright() as p:
         browser = p.chromium.launch(headless="--headless" in sys.argv)
         try:
@@ -67,10 +73,8 @@ def main():
     assert total >= 150, f"prea putini campioni ({total}): layout schimbat?"
     old = json.loads(tier_list.DATA_FILE.read_text(encoding="utf-8"))
     out = merge(old, patch, tiers)
-    tier_list.DATA_FILE.write_text(json.dumps(out, indent=1, ensure_ascii=False),
-                                   encoding="utf-8")
-    print(f"patch {patch}: {total} campioni (anterior: "
-          f"{(out['previous'] or {}).get('patch')})")
+    tier_list.DATA_FILE.write_text(json.dumps(out, indent=1, ensure_ascii=False), encoding="utf-8")
+    print(f"patch {patch}: {total} campioni (anterior: {(out['previous'] or {}).get('patch')})")
 
 
 if __name__ == "__main__":

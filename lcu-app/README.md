@@ -1,5 +1,7 @@
 # ARAM Mayhem helper - champ select
 
+> Documentație pentru modulul standalone de champion select. Aplicația desktop curentă pornește din `app.py` de la rădăcina depozitului și `ui/`. Pentru instalare, mediul Python și verificările actuale, folosește [README-ul principal în română](../README.md), [English](../README.en.md) sau [Türkçe](../README.tr.md). Proiect original: Joltarise / CyberKird; contribuțiile fork-ului ravidulundu sunt descrise acolo.
+
 Overlay care arata tier-ul campionilor de pe bench in champ select de ARAM Mayhem.
 Se afiseaza singur cand intri in champ select si dispare cand se termina.
 

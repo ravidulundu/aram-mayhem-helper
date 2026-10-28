@@ -26,6 +26,7 @@ def build_augment_items(item_names):
     una lipsa.
     """
     import augment_tier
+
     global_augments = json.loads((DATA / "augments-global.json").read_text(encoding="utf-8"))
 
     by_lower = {n.lower(): n for n in item_names}
@@ -34,15 +35,16 @@ def build_augment_items(item_names):
         if not aug.startswith("Upgrade"):
             continue
         # "Upgrade X" si "Upgrade: X"
-        base = aug[len("Upgrade"):].lstrip(":").strip().lower()
+        base = aug[len("Upgrade") :].lstrip(":").strip().lower()
         if not base:
             continue
-        item = by_lower.get(base) or by_lower.get("the " + base)   # "Upgrade Collector"
+        item = by_lower.get(base) or by_lower.get("the " + base)  # "Upgrade Collector"
         if item is None:
             # "Upgrade Zhonya's" -> "Zhonya's Hourglass", "Upgrade Cutlass" ->
             # "Spectral Cutlass": doar cand un singur item se potriveste
-            matches = [n for low, n in by_lower.items() if low.startswith(base)] \
-                or [n for low, n in by_lower.items() if base in low.split()]
+            matches = [n for low, n in by_lower.items() if low.startswith(base)] or [
+                n for low, n in by_lower.items() if base in low.split()
+            ]
             item = matches[0] if len(matches) == 1 else None
         if item:
             out[aug] = item
@@ -61,13 +63,13 @@ def build_item_groups():
     grupurile, deci le citim din fisierele jocului, prin CommunityDragon.
     """
     import urllib.request
+
     # fara User-Agent CommunityDragon raspunde 403
     req = urllib.request.Request(GAME_ITEMS, headers={"User-Agent": "aram-mayhem-helper"})
     with urllib.request.urlopen(req, timeout=120) as r:
         game = json.load(r)
     names = json.loads((DATA / "item-ids.json").read_text(encoding="utf-8"))
-    single = {k for k, v in game.items()
-              if isinstance(v, dict) and v.get("mMaxGroupOwnable") == 1}
+    single = {k for k, v in game.items() if isinstance(v, dict) and v.get("mMaxGroupOwnable") == 1}
     out = {}
     for v in game.values():
         if not isinstance(v, dict) or str(v.get("itemID")) not in names:
@@ -84,8 +86,9 @@ def main():
     print(f"itemi cu grup exclusiv: {len(groups)}")
     names = set(json.loads((DATA / "item-desc.json").read_text(encoding="utf-8")))
     augs = build_augment_items(names)
-    AUG_OUT.write_text(json.dumps(augs, indent=1, sort_keys=True, ensure_ascii=False),
-                       encoding="utf-8")
+    AUG_OUT.write_text(
+        json.dumps(augs, indent=1, sort_keys=True, ensure_ascii=False), encoding="utf-8"
+    )
     print(f"augmente care cer un item anume: {len(augs)}")
     for aug, item in sorted(augs.items()):
         print(f"  {aug} -> {item}")

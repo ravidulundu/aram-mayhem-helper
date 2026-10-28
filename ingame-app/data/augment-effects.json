@@ -1,4 +1,7 @@
 {
+ "ADAPt": {
+  "damage": "AP"
+ },
  "Aim for the Head": {
   "likes": "crit"
  },
@@ -176,5 +179,8 @@
  },
  "Zealot": {
   "likes": "crit"
+ },
+ "escAPADe": {
+  "damage": "AD"
  }
 }

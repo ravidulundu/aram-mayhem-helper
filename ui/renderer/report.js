@@ -29,23 +29,23 @@ $('form').addEventListener('submit', async e => {
   const send = $('send')
   if (send.disabled) return
   send.disabled = true
-  send.textContent = 'SE TRIMITE...'
+  send.textContent = 'SENDING...'
   const r = await api.invoke('report-send', {
     desc: $('desc').value, email: $('email').value, include: $('include').checked, diag,
   })
   send.disabled = false
-  send.textContent = 'TRIMITE'
-  if (!r) return result('Motorul nu a raspuns. Incearca din nou.', false)
+  send.textContent = 'SEND'
+  if (!r) return result('The engine did not respond. Try again.', false)
   result(r.text, r.ok)
   if (r.ok) setTimeout(() => api.send('report-close'), 1500)
-  else if (r.text && !r.text.startsWith('Descrie') && !r.text.startsWith('Prea') && !r.text.startsWith('Adresa')) {
+  else if (r.text && !r.text.startsWith('Describe') && !r.text.startsWith('Too long') && !r.text.startsWith('The email')) {
     $('mail').hidden = false          // rezerva, doar dupa un esec de trimitere
     resize()
   }
 })
 
 $('mail').addEventListener('click', () => api.send('report-mailto', {
-  desc: $('desc').value, diag: $('include').checked ? diag : '(diagnostic omis de utilizator)',
+  desc: $('desc').value, diag: $('include').checked ? diag : '(diagnostics omitted by user)',
 }))
 $('close').addEventListener('click', () => api.send('report-close'))
 document.addEventListener('keydown', e => { if (e.key === 'Escape') api.send('report-close') })

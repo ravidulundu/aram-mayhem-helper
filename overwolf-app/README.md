@@ -1,14 +1,14 @@
 # ARAM Mayhem helper - in joc (Overwolf)
 
+> Implementare alternativă istorică, nu aplicația desktop activă. Varianta curentă folosește Python, Electron și OCR Windows, fără Overwolf. Instalarea, mediul și verificările curente sunt în [README-ul principal în română](../README.md), [English](../README.en.md) și [Türkçe](../README.tr.md). Proiect original: Joltarise / CyberKird; contribuțiile fork-ului ravidulundu sunt descrise separat în documentația principală.
+
 Overlay care, in timpul meciului de ARAM Mayhem, arata:
 
 - **tier-ul augmentelor oferite** (S+ ... D), cu cel mai bun marcat `BEST`;
 - **build-ul campionului tau** de pe u.gg, cu itemii relevanti pentru
   compozitia inamica evidentiati.
 
-E aplicatie Overwolf pentru ca augmentele **nu** se pot citi altfel: Live Client
-Data API-ul lui Riot (`127.0.0.1:2999`) nu expune deloc optiunile oferite, iar
-singura sursa structurata fara OCR e Game Events Provider-ul de la Overwolf.
+Această implementare folosește Game Events Provider de la Overwolf pentru opțiunile de augment. Live Client Data API (`127.0.0.1:2999`) nu expune ofertele; aplicația desktop curentă folosește alternativa OCR Windows.
 
 ## Instalare
 

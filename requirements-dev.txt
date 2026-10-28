@@ -2,6 +2,6 @@
 # (prefetch_builds.py, build_champion_augments.py, build_icons.py,
 # build_item_stats.py) sau sa construiesti exe-ul (pyinstaller).
 # Utilizatorii obisnuiti nu au nevoie de astea.
--r requirements.txt
-playwright>=1.62.0
-pyinstaller>=6.11.0
+-r requirements-quality.txt
+# Python 3.14 support starts with PyInstaller 6.15.
+pyinstaller>=6.15.0

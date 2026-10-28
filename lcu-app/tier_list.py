@@ -54,8 +54,12 @@ def load(path=DATA_FILE):
     """(patch, {nume: tier}, patch_anterior, {nume: tier anterior})."""
     raw = json.loads(pathlib.Path(path).read_text(encoding="utf-8"))
     prev = raw.get("previous") or {}
-    return (raw["patch"], flatten(raw["tiers"]),
-            prev.get("patch"), flatten(prev.get("tiers") or {}))
+    return (
+        raw["patch"],
+        flatten(raw["tiers"]),
+        prev.get("patch"),
+        flatten(prev.get("tiers") or {}),
+    )
 
 
 def change(name, current, previous):
@@ -79,6 +83,7 @@ def aramkit_tiers():
 
     def pick(champions):
         return {n: c["tier"] for n, c in (champions or {}).items() if c.get("tier") in TIER_ORDER}
+
     return pick(raw.get("champions")), pick((raw.get("previous") or {}).get("champions"))
 
 

@@ -16,11 +16,11 @@ de mana si ajustabile; selfcheck-ul fixeaza comportamentul, nu cifrele.
 ELIXIRS = ("Elixir of Iron", "Elixir of Sorcery", "Elixir of Wrath")
 PRICE = 500
 LEVEL = 9
-DURATION = 180          # secunde de efect
-MIN_CORE = 2            # iteme terminate inainte ca elixirul sa merite banii
-LATE = 20 * 60          # de aici lupta e lunga si aurul sta degeaba
+DURATION = 180  # secunde de efect
+MIN_CORE = 2  # iteme terminate inainte ca elixirul sa merite banii
+LATE = 20 * 60  # de aici lupta e lunga si aurul sta degeaba
 
-_DEF_MIN = {"armor": 30, "mr": 30, "hp": 200}     # ca in update_aramkit.py
+_DEF_MIN = {"armor": 30, "mr": 30, "hp": 200}  # ca in update_aramkit.py
 
 
 def _meta(tags, name):
@@ -38,8 +38,11 @@ def _damage(tags, name):
 def defensive_items(items, item_stats):
     """Cati itemi de aparare (armura/MR/viata mare) au inamicii."""
     stats = item_stats or {}
-    return sum(1 for n in items or ()
-               if any((stats.get(n) or {}).get(k, 0) >= v for k, v in _DEF_MIN.items()))
+    return sum(
+        1
+        for n in items or ()
+        if any((stats.get(n) or {}).get(k, 0) >= v for k, v in _DEF_MIN.items())
+    )
 
 
 def score(tags, champ, allies, enemies, enemy_items=(), item_stats=None):
@@ -48,7 +51,7 @@ def score(tags, champ, allies, enemies, enemy_items=(), item_stats=None):
     dmg, mine = me.get("damageType", "mixed"), set(me.get("tags") or ())
     mates = list(allies or ())
     if champ in mates:
-        mates.remove(champ)          # rosterul include campionul tau
+        mates.remove(champ)  # rosterul include campionul tau
 
     tanks = _count(tags, enemies, "Tank")
     cc = tanks + _count(tags, enemies, "Support") + 0.5 * _count(tags, enemies, "Mage")
@@ -59,28 +62,34 @@ def score(tags, champ, allies, enemies, enemy_items=(), item_stats=None):
     melee = _count(tags, mates, "Tank", "Fighter", "Assassin")
     healers = min(2, _count(tags, mates, "Support"))
 
-    wrath = [({"AD": 10, "mixed": 5, "AP": 0}.get(dmg, 5), f"campion {dmg}")]
-    sorcery = [({"AP": 10, "mixed": 5, "AD": 0}.get(dmg, 5), f"campion {dmg}")]
-    iron = [(4, "se potriveste oricui")]
+    wrath = [({"AD": 10, "mixed": 5, "AP": 0}.get(dmg, 5), f"{dmg} champion")]
+    sorcery = [({"AP": 10, "mixed": 5, "AD": 0}.get(dmg, 5), f"{dmg} champion")]
+    iron = [(4, "suits any champion")]
 
-    for tag, w, s, i in (("Marksman", 3, 0, -2), ("Fighter", 2, 0, 3), ("Assassin", 2, 1, 0),
-                         ("Mage", 0, 3, 0), ("Tank", 0, 0, 8), ("Support", 0, 0, 3)):
+    for tag, w, s, i in (
+        ("Marksman", 3, 0, -2),
+        ("Fighter", 2, 0, 3),
+        ("Assassin", 2, 1, 0),
+        ("Mage", 0, 3, 0),
+        ("Tank", 0, 0, 8),
+        ("Support", 0, 0, 3),
+    ):
         if tag in mine:
             for lst, pts in ((wrath, w), (sorcery, s), (iron, i)):
                 if pts:
                     lst.append((pts, tag.lower()))
 
     # inamici: CC si burst cer rezistenta; tancurile si itemele de aparare cer damage curat
-    iron += [(0.8 * cc, "inamici cu CC"), (0.6 * burst, "inamici cu burst")]
-    sorcery += [(1.0 * tanks + 0.5 * armored, "inamici tancosi (damage curat)")]
-    wrath += [(0.5 * poke, "inamici cu poke (physical vamp)")]
+    iron += [(0.8 * cc, "enemies with CC"), (0.6 * burst, "enemies with burst")]
+    sorcery += [(1.0 * tanks + 0.5 * armored, "tanky enemies (true damage)")]
+    wrath += [(0.5 * poke, "enemies with poke (physical vamp)")]
     # echipa ta: fara linie intai cineva trebuie sa reziste; aliatii in melee profita de urma de viteza
     if front <= 1:
-        iron.append((3, "echipa fara linie intai"))
+        iron.append((3, "team lacks a frontline"))
     if melee >= 3:
-        iron.append((2, "aliati in melee (urma de viteza)"))
+        iron.append((2, "melee allies (movement speed trail)"))
     if healers:
-        wrath.append((-1.0 * healers, "echipa are heal deja"))
+        wrath.append((-1.0 * healers, "team already has healing"))
 
     return {"Elixir of Wrath": wrath, "Elixir of Sorcery": sorcery, "Elixir of Iron": iron}
 
@@ -88,7 +97,7 @@ def score(tags, champ, allies, enemies, enemy_items=(), item_stats=None):
 def pick(parts):
     """(elixirul cu cel mai mare scor, scorurile lui, motivul principal, restul)."""
     totals = {n: sum(p for p, _ in ps) for n, ps in parts.items()}
-    best = max(ELIXIRS, key=lambda n: totals[n])        # la egalitate: ordinea din ELIXIRS
+    best = max(ELIXIRS, key=lambda n: totals[n])  # la egalitate: ordinea din ELIXIRS
     why = [m for p, m in sorted(parts[best], reverse=True) if p > 0][:2]
     return best, totals, why
 
@@ -120,8 +129,23 @@ class Tracker:
         self.had, self.until = None, 0.0
 
 
-def advise(tags, champ, allies, enemies, enemy_items, own_items, item_stats,
-           level, gold, game_time, active_until=0.0, full=False, core=0, left_items=0, reserve=0):
+def advise(
+    tags,
+    champ,
+    allies,
+    enemies,
+    enemy_items,
+    own_items,
+    item_stats,
+    level,
+    gold,
+    game_time,
+    active_until=0.0,
+    full=False,
+    core=0,
+    left_items=0,
+    reserve=0,
+):
     """Starea pentru panou:
       locked  nivel < 9           wait  prea putine iteme terminate
       gold    nu ai 500g          buy   ia-l acum (la recall)
@@ -136,24 +160,50 @@ def advise(tags, champ, allies, enemies, enemy_items, own_items, item_stats,
     left = int(active_until - t)
 
     if held:
-        out.update(state="use", pick=held, when="Ai deja elixirul: bea-l cand pornesti spre lupta, tine 3 min.")
+        out.update(
+            state="use",
+            pick=held,
+            when="You already have the elixir: drink it before fighting; it lasts 3 minutes.",
+        )
     elif left > 0:
-        out.update(state="active", left=left, when=f"Efectul tine inca ~{left}s: nu cumpara altul.")
+        out.update(
+            state="active", left=left, when=f"Effect lasts ~{left}s more: do not buy another."
+        )
     elif not isinstance(level, int) or level < LEVEL:
-        out.update(state="locked", when=f"Se deschide la nivel {LEVEL}" + (f" (acum {level})." if isinstance(level, int) else "."))
+        out.update(
+            state="locked",
+            when=f"Unlocks at level {LEVEL}"
+            + (f" (currently {level})." if isinstance(level, int) else "."),
+        )
     elif core < MIN_CORE and not full:
-        out.update(state="wait", when=f"Mai intai {MIN_CORE} iteme terminate ({core} acum): itemele dau mai mult decat 3 min de buff.")
+        out.update(
+            state="wait",
+            when=f"Finish {MIN_CORE} items first ({core} now): items are worth more than a 3-minute buff.",
+        )
     elif not isinstance(gold, (int, float)) or gold < PRICE:
-        out.update(state="gold", need=max(0, PRICE - int(gold or 0)),
-                   when=f"Mai ai nevoie de {max(0, PRICE - int(gold or 0))}g.")
+        out.update(
+            state="gold",
+            need=max(0, PRICE - int(gold or 0)),
+            when=f"You need {max(0, PRICE - int(gold or 0))}g more.",
+        )
     elif left_items and not full and gold < reserve + PRICE:
-        out.update(state="wait", when=f"Mai intai itemele: ai nevoie de ~{reserve}g pentru ele, "
-                                       f"elixirul (500g) cand ai {reserve + PRICE}g.")
+        out.update(
+            state="wait",
+            when=f"Buy items first: you need ~{reserve}g for them; "
+            f"buy the elixir (500g) when you have {reserve + PRICE}g.",
+        )
     else:
         late = t >= LATE
-        out.update(state="buy", when=("Build plin: e cea mai buna cheltuiala de aur, ia-l la fiecare recall." if full
-                                      else "Lupte lungi, aur de sobra: ia-l la fiecare recall." if late
-                                      else "Ia-l la urmatorul recall, inainte de lupta mare (tine 3 min)."))
+        out.update(
+            state="buy",
+            when=(
+                "Full build: this is the best use of gold; buy one on every recall."
+                if full
+                else "Long fights and spare gold: buy one on every recall."
+                if late
+                else "Buy it on your next recall before a major fight (lasts 3 minutes)."
+            ),
+        )
     return out
 
 
@@ -179,20 +229,44 @@ def selfcheck():
     # tancuri + itemi de aparare ridica Sorcery (damage curat)
     stats = {"Thornmail": {"armor": 70, "hp": 350}, "Force of Nature": {"mr": 70, "hp": 400}}
     few = score(tags, "Ahri", ["Ahri"], ["Zed"], (), stats)["Elixir of Sorcery"]
-    many = score(tags, "Ahri", ["Ahri"], ["Malphite", "Leona"], ["Thornmail", "Force of Nature"], stats)["Elixir of Sorcery"]
+    many = score(
+        tags, "Ahri", ["Ahri"], ["Malphite", "Leona"], ["Thornmail", "Force of Nature"], stats
+    )["Elixir of Sorcery"]
     assert sum(p for p, _ in many) > sum(p for p, _ in few)
     # echipa ta conteaza: fara linie intai, Iron creste; cu heal in echipa, Wrath scade
     solo = score(tags, "Jinx", ["Jinx", "Ahri", "Lux", "Zed"], ["Zed"])
     wall = score(tags, "Jinx", ["Jinx", "Garen", "Malphite", "Leona"], ["Zed"])
     assert sum(p for p, _ in solo["Elixir of Iron"]) > sum(p for p, _ in wall["Elixir of Iron"])
     heal = score(tags, "Jinx", ["Jinx", "Soraka"], ["Zed"])
-    assert sum(p for p, _ in heal["Elixir of Wrath"]) < sum(p for p, _ in score(tags, "Jinx", ["Jinx", "Zed"], ["Zed"])["Elixir of Wrath"])
+    assert sum(p for p, _ in heal["Elixir of Wrath"]) < sum(
+        p for p, _ in score(tags, "Jinx", ["Jinx", "Zed"], ["Zed"])["Elixir of Wrath"]
+    )
 
-    def state(**kw):
-        a = dict(tags=tags, champ="Jinx", allies=["Jinx"], enemies=["Zed"], enemy_items=[], own_items=[],
-                 item_stats={}, level=12, gold=900, game_time=600, core=3)
-        a.update(kw)
-        return advise(**a)
+    def state(
+        *,
+        level: int | None = 12,
+        gold: int = 900,
+        game_time: int = 600,
+        core: int = 3,
+        full: bool = False,
+        own_items: list[str] | None = None,
+        active_until: float = 0.0,
+    ):
+        return advise(
+            tags,
+            "Jinx",
+            ["Jinx"],
+            ["Zed"],
+            [],
+            own_items or [],
+            {},
+            level,
+            gold,
+            game_time,
+            active_until=active_until,
+            full=full,
+            core=core,
+        )
 
     assert state(level=8)["state"] == "locked"
     assert state(core=1)["state"] == "wait"

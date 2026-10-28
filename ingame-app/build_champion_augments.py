@@ -17,6 +17,7 @@ unui meci (porneste un Chromium real).
 """
 
 import json
+import logging
 import pathlib
 import sys
 import time
@@ -24,6 +25,8 @@ import time
 from playwright.sync_api import sync_playwright
 
 from build_scraper import slug
+
+logger = logging.getLogger(__name__)
 
 DATA = pathlib.Path(__file__).with_name("data")
 OUT = DATA / "augments"
@@ -125,14 +128,18 @@ def build_descriptions(browser):
         for name, desc in (pairs or {}).items():
             out.setdefault(name, desc)
     except Exception as e:
+        logger.exception(
+            'ingame-app/build_champion_augments.py:build_descriptions failed; preserving fallback'
+        )
         print(f"  Blitz: {type(e).__name__} (continui doar cu datele Riot)")
     finally:
         page.close()
 
     # fara linii lungi in textele afisate: Riot si Blitz le folosesc la intervale si citate
     out = {k: v.replace("\u2013", "-").replace("\u2014", "-") for k, v in out.items()}
-    DESC_OUT.write_text(json.dumps(out, indent=1, sort_keys=True, ensure_ascii=False),
-                        encoding="utf-8")
+    DESC_OUT.write_text(
+        json.dumps(out, indent=1, sort_keys=True, ensure_ascii=False), encoding="utf-8"
+    )
     return out
 
 
@@ -140,8 +147,9 @@ def main():
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     headed = "--headed" in sys.argv
 
-    champs = args or list(json.loads(
-        (DATA / "champion-tags.json").read_text(encoding="utf-8")).keys())
+    champs = args or list(
+        json.loads((DATA / "champion-tags.json").read_text(encoding="utf-8")).keys()
+    )
     OUT.mkdir(parents=True, exist_ok=True)
 
     print(f"aduc augmente pentru {len(champs)} campioni...")
@@ -152,19 +160,24 @@ def main():
             try:
                 data = scrape_augments(champ, browser)
             except Exception as e:
+                logger.exception(
+                    'ingame-app/build_champion_augments.py:main failed; preserving fallback'
+                )
                 data = None
                 print(f"  [{i}/{len(champs)}] {champ}: {type(e).__name__}")
             if data:
                 total = sum(len(v) for v in data["tiers"].values())
                 (OUT / f"{slug(champ)}.json").write_text(
-                    json.dumps(data, indent=1, ensure_ascii=False), encoding="utf-8")
+                    json.dumps(data, indent=1, ensure_ascii=False), encoding="utf-8"
+                )
                 ok += 1
-                print(f"  [{i}/{len(champs)}] {champ}: {total} augmente "
-                      f"({', '.join(data['tiers'])})")
+                print(
+                    f"  [{i}/{len(champs)}] {champ}: {total} augmente ({', '.join(data['tiers'])})"
+                )
             else:
                 failed.append(champ)
                 print(f"  [{i}/{len(champs)}] {champ}: gol")
-            time.sleep(0.4)   # curtoazie fata de u.gg
+            time.sleep(0.4)  # curtoazie fata de u.gg
         browser.close()
 
     print(f"\nGata: {ok} scrise, {len(failed)} esuate")

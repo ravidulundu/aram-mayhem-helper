@@ -19,16 +19,21 @@ import ctypes
 import functools
 import importlib.util
 import json
+import logging
 import os
 import pathlib
 import sys
 import threading
 import time
+from types import ModuleType
+from typing import ClassVar, NotRequired, TypedDict
 
 import bug_report
 import champ_ocr
 import data_sync
 import hud_settings
+
+logger = logging.getLogger(__name__)
 
 # versiunea o tine ui/package.json (de acolo vin si update-urile); aici doar o raportam
 VERSION = os.environ.get("ARAM_VERSION") or "dev"
@@ -37,7 +42,10 @@ VERSION = os.environ.get("ARAM_VERSION") or "dev"
 # supravietuiasca inchiderii (jurnal, date sincronizate) sta in ARAM_HOME,
 # folderul de date al aplicatiei (%APPDATA%), dat de interfata.
 if getattr(sys, "frozen", False):
-    ROOT = pathlib.Path(sys._MEIPASS)
+    bundle_root = getattr(sys, "_MEIPASS", None)
+    if bundle_root is None:
+        raise RuntimeError("Frozen application is missing its bundle directory")
+    ROOT = pathlib.Path(bundle_root)
     HOME = pathlib.Path(os.environ.get("ARAM_HOME") or pathlib.Path(sys.executable).parent)
 else:
     ROOT = pathlib.Path(__file__).parent
@@ -48,25 +56,54 @@ TIERS = ("S+", "S", "A", "B", "C", "D")
 
 # nume lung de card Stat Anvil -> eticheta scurta care incape in insigna
 ANVIL_LABEL = {
-    "haste": "HASTE", "ap": "AP", "ad": "AD", "as": "AS", "crit": "CRIT",
-    "hp": "HP", "armor": "ARMOR", "mr": "MR", "pen_ad": "PEN AD",
-    "pen_ap": "PEN AP", "hybrid_dmg": "AD+AP", "hybrid_utility": "AS+AH",
-    "hybrid_defense": "AR+MR", "mobility": "MS", "sustain": "OMNIVAMP",
-    "heal_power": "HEAL", "cc_resist": "TENACITY",
+    "haste": "HASTE",
+    "ap": "AP",
+    "ad": "AD",
+    "as": "AS",
+    "crit": "CRIT",
+    "hp": "HP",
+    "armor": "ARMOR",
+    "mr": "MR",
+    "pen_ad": "PEN AD",
+    "pen_ap": "PEN AP",
+    "hybrid_dmg": "AD+AP",
+    "hybrid_utility": "AS+AH",
+    "hybrid_defense": "AR+MR",
+    "mobility": "MS",
+    "sustain": "OMNIVAMP",
+    "heal_power": "HEAL",
+    "cc_resist": "TENACITY",
 }
 
-TICK = 0.15     # secunde intre doua citiri de stare: o oferta noua trebuie sa apara pe loc
+TICK = 0.15  # secunde intre doua citiri de stare: o oferta noua trebuie sa apara pe loc
+
+
+class GameGeometry(TypedDict):
+    box: list[int]
+    dock: list[int]
+    front: bool
+    panel: list[int] | None
+    minimap: float | None
+    miss: NotRequired[int]
+
+
+class Geometry(TypedDict):
+    game: GameGeometry | None
+    client: dict[str, list[int]] | None
+    bars: dict[str, object] | None
+    pins: list[dict[str, object]] | None
 
 
 def enable_dpi_awareness():
     """Pixeli reali peste tot (mss, ferestrele jocului). O data, inainte de orice captura."""
     try:
-        ctypes.windll.shcore.SetProcessDpiAwareness(2)      # per-monitor
+        ctypes.windll.shcore.SetProcessDpiAwareness(2)  # per-monitor
     except Exception:
+        logger.exception('app.py:enable_dpi_awareness failed; preserving fallback')
         try:
             ctypes.windll.user32.SetProcessDPIAware()
         except Exception:
-            pass
+            logger.exception('app.py:enable_dpi_awareness failed; preserving fallback')
 
 
 def be_lightweight():
@@ -76,14 +113,17 @@ def be_lightweight():
         k.GetCurrentProcess.restype = ctypes.c_void_p
         k.SetPriorityClass(ctypes.c_void_p(k.GetCurrentProcess()), 0x00004000)
     except Exception:
-        pass
+        logger.exception('app.py:be_lightweight failed; preserving fallback')
 
 
-def _load_page(name, folder):
+def _load_page(name: str, folder: str) -> ModuleType:
     """Incarca <folder>/app.py sub un nume propriu (ambele se numesc 'app.py')."""
     folder_path = ROOT / folder
-    sys.path.insert(0, str(folder_path))
+    if str(folder_path) not in sys.path:
+        sys.path.insert(0, str(folder_path))
     spec = importlib.util.spec_from_file_location(name, folder_path / "app.py")
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Cannot load {name} from {folder_path}")
     module = importlib.util.module_from_spec(spec)
     sys.modules[name] = module
     spec.loader.exec_module(module)
@@ -93,7 +133,8 @@ def _load_page(name, folder):
 @functools.lru_cache(maxsize=4096)
 def ic(kind, name):
     """Calea iconitei relativ la ICONS ("items/x.png"), sau None daca lipseste."""
-    from build_icons import slug   # aceeasi regula de nume ca la descarcare
+    from build_icons import slug  # aceeasi regula de nume ca la descarcare
+
     path = ICONS / kind / f"{slug(name)}.png"
     return f"{kind}/{path.name}" if path.exists() else None
 
@@ -109,7 +150,7 @@ def emit(msg):
         sys.stdout.flush()
 
 
-SYNC_EVERY = 30 * 60      # secunde intre doua sincronizari de date cat timp aplicatia ruleaza
+SYNC_EVERY = 30 * 60  # secunde intre doua sincronizari de date cat timp aplicatia ruleaza
 
 
 def maintenance():
@@ -119,7 +160,7 @@ def maintenance():
         try:
             data_sync.sync(HOME / "data-sync")
         except Exception:
-            pass
+            logger.exception('app.py:maintenance failed; preserving fallback')
         time.sleep(SYNC_EVERY)
 
 
@@ -134,7 +175,8 @@ class Engine:
         self.reader = champ_ocr.ChampSelectReader(
             lcu.load_champion_data().values(),
             lambda: lcu_mon.phase == "in_mayhem_select" and ingame_mon.phase != "in_game",
-            self.champ_known)
+            self.champ_known,
+        )
 
     # --- ce arata panoul --------------------------------------------------
 
@@ -148,8 +190,9 @@ class Engine:
     def champ_known(self):
         # tu, bench-ul si coechipierii: toti apar pe ecran, dar nu sunt cartile tale
         lm = self.lcu_mon
-        return [e["name"] for e in ([lm.assigned] if lm.assigned else [])
-                + list(lm.bench)] + list(lm.team)
+        return [e["name"] for e in ([lm.assigned] if lm.assigned else []) + list(lm.bench)] + list(
+            lm.team
+        )
 
     def champ(self, entry, origin):
         keys = ("name", "tier", "wr", "wr_delta", "pr", "tier_change", "balance")
@@ -162,14 +205,24 @@ class Engine:
         import champ_stats
         import mayhem_logic as logic
         import tier_list
+
         lm = self.lcu_mon
         known = set(self.champ_known())
-        offers = [dict(name=n, tier=tier_list.TIER_DATA.get(n, logic.UNRANKED), **champ_stats.info(n))
-                  for n in self.reader.offers if n not in known]
-        pool = ([self.champ(lm.assigned, "AL TAU")] if lm.assigned else []) + (
-            [self.champ(e, "CARTE") for e in offers] or [self.champ(e, "BENCH") for e in lm.bench])
+        offers = [
+            dict(name=n, tier=tier_list.TIER_DATA.get(n, logic.UNRANKED), **champ_stats.info(n))
+            for n in self.reader.offers
+            if n not in known
+        ]
+        pool = ([self.champ(lm.assigned, "YOURS")] if lm.assigned else []) + (
+            [self.champ(e, "CARD") for e in offers] or [self.champ(e, "BENCH") for e in lm.bench]
+        )
+
         # in acelasi tier decide win rate-ul (Xin Zhao 56% inaintea Sonei 53%); la egalitate ramane al tau
-        pool.sort(key=lambda e: (logic.tier_rank(e["tier"]), -(e.get("wr") or 0)))
+        def rank(entry):
+            wr = entry.get("wr")
+            return logic.tier_rank(entry["tier"]), -wr if isinstance(wr, (int, float)) else 0
+
+        pool.sort(key=rank)
         if pool:
             pool[0]["is_best"] = True
         return pool
@@ -178,30 +231,51 @@ class Engine:
         pool = self.champ_pool()
         build = self.ingame.load_cached(pool[0]["name"]) if pool else None
         summoners = (build or {}).get("summoners") or []
-        return {"pool": pool, "summoners": [{"name": n, "icon": ic("summoners", n)} for n in summoners]}
+        return {
+            "pool": pool,
+            "summoners": [{"name": n, "icon": ic("summoners", n)} for n in summoners],
+        }
 
     def item(self, e):
         name = e["item"] if isinstance(e, dict) else e
         e = e if isinstance(e, dict) else {}
-        return {"item": name, "icon": ic("items", name), "owned": bool(e.get("owned")),
-                "next": bool(e.get("next")), "reason": e.get("reason"),
-                "desc": self.item_desc.get(name)}
+        return {
+            "item": name,
+            "icon": ic("items", name),
+            "owned": bool(e.get("owned")),
+            "next": bool(e.get("next")),
+            "reason": e.get("reason"),
+            "desc": self.item_desc.get(name),
+        }
 
     def aug(self, a):
-        return {"name": a["name"], "tier": a["tier"], "is_best": bool(a.get("is_best")),
-                "slot": a.get("slot"), "icon": ic("augments", a["name"]),
-                "needs": self.augment_items.get(a["name"]),
-                # fara tier aratam ce face, ca sa poti decide tu; nu inventam un rank
-                "desc": None if a["tier"] in TIERS else self.augment_desc.get(a["name"])}
+        return {
+            "name": a["name"],
+            "tier": a["tier"],
+            "is_best": bool(a.get("is_best")),
+            "slot": a.get("slot"),
+            "icon": ic("augments", a["name"]),
+            "needs": self.augment_items.get(a["name"]),
+            # fara tier aratam ce face, ca sa poti decide tu; nu inventam un rank
+            "desc": None if a["tier"] in TIERS else self.augment_desc.get(a["name"]),
+        }
 
     def anvil(self):
-        return [{"name": s["name"].replace(" Shard", ""),
-                 "tier": ANVIL_LABEL.get(s["category"], s["category"].upper()),
-                 "is_best": bool(s["is_best"]), "slot": s.get("slot"), "why": s.get("why"),
-                 "champion": s.get("champion")} for s in self.mon.stat_anvil]
+        return [
+            {
+                "name": s["name"].replace(" Shard", ""),
+                "tier": ANVIL_LABEL.get(s["category"], s["category"].upper()),
+                "is_best": bool(s["is_best"]),
+                "slot": s.get("slot"),
+                "why": s.get("why"),
+                "champion": s.get("champion"),
+            }
+            for s in self.mon.stat_anvil
+        ]
 
     def top_augments(self, champ):
         import augment_tier
+
         if self._top[0] != champ:
             self._top = (champ, augment_tier.top_by_rarity(self.mon.global_augments, champ))
         return self._top[1]
@@ -210,15 +284,21 @@ class Engine:
         m = self.mon
         roster = m.roster or {}
         champ = roster.get("local_champion")
-        out = {"champ": champ, "enemies": len(roster.get("enemies") or []),
-               "loading": not m.roster, "status": m.status or "",
-               "ocr": (m.ocr_status or "").split(" (")[0],
-               "taken": [{"name": n, "icon": ic("augments", n), "desc": self.augment_desc.get(n)}
-                         for n in m.taken_augments],
-               "offer": [self.aug(a) for a in m.augments],
-               "anvil": self.anvil(),
-               "top": self.top_augments(champ),
-               "build": None}
+        out = {
+            "champ": champ,
+            "enemies": len(roster.get("enemies") or []),
+            "loading": not m.roster,
+            "status": m.status or "",
+            "ocr": (m.ocr_status or "").split(" (")[0],
+            "taken": [
+                {"name": n, "icon": ic("augments", n), "desc": self.augment_desc.get(n)}
+                for n in m.taken_augments
+            ],
+            "offer": [self.aug(a) for a in m.augments],
+            "anvil": self.anvil(),
+            "top": self.top_augments(champ),
+            "build": None,
+        }
         rb = m.resolved_build
         if rb:
             full = rb.get("full")
@@ -227,43 +307,65 @@ class Engine:
             sell = rb.get("sell")
             out["build"] = {
                 "starting": [self.item(e) for e in rb.get("starting") or []],
-                "sell": sell and dict(sell, sell_icon=ic("items", sell["sell"]),
-                                      buy_icon=ic("items", sell["buy"])),
+                "sell": sell
+                and dict(
+                    sell, sell_icon=ic("items", sell["sell"]), buy_icon=ic("items", sell["buy"])
+                ),
                 # cu 6 sloturi pline ce urmeaza vine doar prin sfatul de vanzare
                 "next": [self.item(e) for e in left[:6]],
-                "complete": [] if left or not rb["picks"] else
-                [self.item(e) for e in items if e["owned"] or not full],
-                "unavailable": rb.get("unavailable") or [], "range": rb.get("range")}
+                "complete": []
+                if left or not rb["picks"]
+                else [self.item(e) for e in items if e["owned"] or not full],
+                "unavailable": rb.get("unavailable") or [],
+                "range": rb.get("range"),
+            }
         adv = m.elixir_advice()
         if adv:
             out["elixir"] = dict(adv, icon=ic("items", adv["pick"]))
         import augment_tier
+
         anvil = None if m.stat_anvil else m.anvil_advice()
         out["anvil_buy"] = anvil and dict(anvil, icon=ic("items", "Stat Bonus"))
         taken = set(m.taken_augments)
         pend = [] if (m.augments or taken & set(m.pending)) else list(m.pending)
-        out["pending"] = [self.aug(a) for a in augment_tier.rate(pend, m.global_augments, champ)] if pend else []
-        out["headliner"] = {"options": [{"name": n, "icon": ic("headliners", n)} for n in self.headliners],
-                            "picked": m.headliner, "info": self.headliners}
+        out["pending"] = (
+            [self.aug(a) for a in augment_tier.rate(pend, m.global_augments, champ)] if pend else []
+        )
+        out["headliner"] = {
+            "options": [{"name": n, "icon": ic("headliners", n)} for n in self.headliners],
+            "picked": m.headliner,
+            "info": self.headliners,
+        }
         return out
 
     # --- unde sunt jocul, clientul si cardurile ----------------------------
 
-    def geometry(self, view):
+    def geometry(self, view: str) -> "Geometry":
         import ocr_augments as o
-        geo = {"game": None, "client": None, "bars": None, "pins": None}
+
+        geo: Geometry = {"game": None, "client": None, "bars": None, "pins": None}
         hwnd = o.find_game_window()
         box = o.game_rect(hwnd) if hwnd else None
         if box and box[3] - box[1] >= 300:
             l, t, r, b = box
             front = o.in_front(hwnd)
-            offer = bool(self.mon.augments or self.mon.stat_anvil)    # cartile de oferta acopera zona
-            hint = {1: True, 0: False}.get(hud_settings.read().get("FlipMiniMap"))
-            mm, seen = hud_settings.measured_minimap(box, o.grab, front and not offer, hud_settings.estimate_minimap(b - t), hint)
-            flipped = hint if seen is None else seen       # harta in stanga: golul merge pana la marginea ecranului
+            offer = bool(self.mon.augments or self.mon.stat_anvil)  # cartile de oferta acopera zona
+            flip = hud_settings.read().get("FlipMiniMap")
+            hint = bool(flip) if flip in (0, 1) else None
+            mm, seen = hud_settings.measured_minimap(
+                box, o.grab, front and not offer, hud_settings.estimate_minimap(b - t), hint
+            )
+            flipped = (
+                hint if seen is None else seen
+            )  # harta in stanga: golul merge pana la marginea ecranului
             x0, y0, x1, y1 = hud_settings.area(r - l, b - t, minimap_px=mm, flipped=flipped)
-            geo["game"] = {"box": list(box), "dock": [int(l + x0), int(t + y0), int(l + x1), int(t + y1)],
-                           "front": front, "panel": panel_rect(), "minimap": mm}
+            geo["game"] = {
+                "box": list(box),
+                "dock": [int(l + x0), int(t + y0), int(l + x1), int(t + y1)],
+                "front": front,
+                "panel": panel_rect(),
+                "minimap": mm,
+            }
             p, d = geo["game"]["panel"], geo["game"]["dock"]
             if p and (abs(p[0] - d[0]) > 2 or abs(p[2] - d[2]) > 2):
                 # panoul nu e unde trebuie: stare noua la fiecare tick, ca interfata sa-l recitesca si sa corecteze
@@ -276,23 +378,35 @@ class Engine:
             if front and (self.mon.augments or self.mon.stat_anvil):
                 # Stat Anvil si oferta de augment nu apar niciodata deodata
                 kind = "augment" if self.mon.augments else "anvil"
-                items = [self.aug(a) for a in self.mon.augments] if self.mon.augments else self.anvil()
-                geo["bars"] = {"kind": kind, "region": list(o.augment_region(box)), "items": items[:3]}
+                items = (
+                    [self.aug(a) for a in self.mon.augments] if self.mon.augments else self.anvil()
+                )
+                geo["bars"] = {
+                    "kind": kind,
+                    "region": list(o.augment_region(box)),
+                    "items": items[:3],
+                }
         if view == "champ_select":
             client = o.find_client_window()
             if client:
                 geo["client"] = {"box": list(o.game_rect(client))}
                 pins = self.reader.pins
                 if pins and o.in_front(client):
-                    geo["pins"] = [dict(e, cx=pins[e["name"]][0], y=pins[e["name"]][1])
-                                   for e in self.champ_pool() if e["name"] in pins]
+                    geo["pins"] = [
+                        dict(e, cx=pins[e["name"]][0], y=pins[e["name"]][1])
+                        for e in self.champ_pool()
+                        if e["name"] in pins
+                    ]
         return geo
 
     def state(self):
         view = self.view()
         lm = self.lcu_mon
-        data = {"idle": lambda: {"client_up": lm.phase != "waiting_for_client", "error": lm.error},
-                "champ_select": self.champ_select, "in_game": self.in_game}[view]()
+        data = {
+            "idle": lambda: {"client_up": lm.phase != "waiting_for_client", "error": lm.error},
+            "champ_select": self.champ_select,
+            "in_game": self.in_game,
+        }[view]()
         return {"t": "state", "view": view, "data": data, "geo": self.geometry(view)}
 
     # --- comenzile interfetei ---------------------------------------------
@@ -315,14 +429,24 @@ class Engine:
             name = msg.get("name")
             m.headliner = None if m.headliner == name or name not in self.headliners else name
         elif cmd == "diag":
-            emit({"t": "reply", "id": msg.get("id"),
-                  "text": bug_report.build_diagnostics(VERSION, HOME, self.lcu_mon, m)})
+            emit(
+                {
+                    "t": "reply",
+                    "id": msg.get("id"),
+                    "text": bug_report.build_diagnostics(VERSION, HOME, self.lcu_mon, m),
+                }
+            )
         elif cmd == "report":
+
             def work():
                 problem = bug_report.validate(msg.get("desc", ""), msg.get("email", ""))
-                ok, text = (False, problem) if problem else bug_report.send(
-                    msg["desc"], msg["email"], msg.get("diag", ""), VERSION)
+                ok, text = (
+                    (False, problem)
+                    if problem
+                    else bug_report.send(msg["desc"], msg["email"], msg.get("diag", ""), VERSION)
+                )
                 emit({"t": "reply", "id": msg.get("id"), "ok": ok, "text": text})
+
             threading.Thread(target=work, daemon=True).start()
         elif cmd == "mailto":
             bug_report.mailto(msg.get("desc", ""), msg.get("diag", ""), VERSION)
@@ -338,8 +462,9 @@ class Engine:
                         sys.stdout.flush()
                     last = line
             except (OSError, ValueError):
-                stop.set()          # interfata a disparut: n-are rost sa mai rulam
+                stop.set()  # interfata a disparut: n-are rost sa mai rulam
             except Exception as e:
+                logger.exception('app.py:loop failed; preserving fallback')
                 emit({"t": "error", "text": f"{type(e).__name__}: {e}"})
             stop.wait(TICK)
 
@@ -357,16 +482,19 @@ def selfcheck():
     def have(kind, name):
         return (ICONS / kind / f"{slug(name)}.png").exists()
 
-    builds = [json.loads(p.read_text(encoding="utf-8"))
-              for p in (ROOT / "ingame-app" / "data" / "builds").glob("*.json")]
+    builds = [
+        json.loads(p.read_text(encoding="utf-8"))
+        for p in (ROOT / "ingame-app" / "data" / "builds").glob("*.json")
+    ]
     missing = set()
     for build in builds:
         for key in ("starting", "core", "fourth", "fifth", "sixth"):
             for name in build.get(key) or []:
                 if not have("items", name):
                     missing.add(f"item: {name}")
-    champions = json.loads((ROOT / "ingame-app" / "data" / "champion-tags.json")
-                           .read_text(encoding="utf-8"))
+    champions = json.loads(
+        (ROOT / "ingame-app" / "data" / "champion-tags.json").read_text(encoding="utf-8")
+    )
     missing |= {f"campion: {n}" for n in champions if not have("champions", n)}
     assert not missing, f"iconite lipsa (ruleaza build_icons.py): {sorted(missing)}"
 
@@ -377,64 +505,95 @@ def selfcheck():
 
     # augmentele vin de la Riot, tier list-ul de la u.gg: numele pot diferi
     import augment_tier
-    tiers = json.loads((ROOT / "ingame-app" / "data" / "augments-global.json")
-                       .read_text(encoding="utf-8"))
-    names = augment_tier.flatten_names(tiers)   # aceeasi sursa ca OCR-ul
+
+    tiers = json.loads(
+        (ROOT / "ingame-app" / "data" / "augments-global.json").read_text(encoding="utf-8")
+    )
+    names = augment_tier.flatten_names(tiers)  # aceeasi sursa ca OCR-ul
     covered = sum(1 for n in names if have("augments", n))
     assert covered >= len(names) * 0.9, f"prea putine iconite de augment: {covered}/{len(names)}"
 
-    counts = {k: len(list((ICONS / k).glob("*.png")))
-              for k in ("items", "champions", "augments", "summoners")}
-    print(f"selfcheck OK: iconite {counts}, augmente acoperite {covered}/{len(names)}, "
-          f"summoners {with_summoners}/{len(builds)} campioni "
-          f"({summoner_icons}/{len(summoner_names)} iconite unice)")
+    counts = {
+        k: len(list((ICONS / k).glob("*.png")))
+        for k in ("items", "champions", "augments", "summoners")
+    }
+    print(
+        f"selfcheck OK: iconite {counts}, augmente acoperite {covered}/{len(names)}, "
+        f"summoners {with_summoners}/{len(builds)} campioni "
+        f"({summoner_icons}/{len(summoner_names)} iconite unice)"
+    )
 
-    assert champ_ocr.find_names("Pick Sett or Jinx, Vi too", ["Sett", "Jinx", "Vi", "Jax"]) \
-        == ["Sett", "Jinx"]
+    assert champ_ocr.find_names("Pick Sett or Jinx, Vi too", ["Sett", "Jinx", "Vi", "Jax"]) == [
+        "Sett",
+        "Jinx",
+    ]
 
     # starea trimisa interfetei: serializabila si cu forma asteptata, pe monitoare false
     class Stub:
         phase, error, assigned, bench, team = "idle", None, None, [], []
-        roster = {"local_champion": "Ahri", "enemies": ["Jinx"], "own_items": []}
+        roster: ClassVar[dict[str, object]] = {
+            "local_champion": "Ahri",
+            "enemies": ["Jinx"],
+            "own_items": [],
+        }
         status = ocr_status = ""
-        augments = [{"name": names[0], "tier": "S", "is_best": True, "slot": 0}]
+
+        def __init__(self):
+            self.augments = [{"name": names[0], "tier": "S", "is_best": True, "slot": 0}]
+            self.pending: list[str] = []
+
         stat_anvil, taken_augments = [], [names[1]]
         global_augments = tiers
         headliner = None
-        pending = []
-        _tags = json.loads((ROOT / "ingame-app" / "data" / "champion-tags.json").read_text(encoding="utf-8"))
+        _tags = json.loads(
+            (ROOT / "ingame-app" / "data" / "champion-tags.json").read_text(encoding="utf-8")
+        )
 
         def anvil_advice(self):
             return ingame.stat_anvil.advise(12, 5000, [], False, 3, 4200, 3, 3100)
 
         def elixir_advice(self):
-            return ingame.elixir.advise(self._tags, "Ahri", ["Ahri"], ["Jinx"], [], [], {}, 12, 900, 840, core=3)
-        resolved_build = {"starting": ["Doran's Ring"], "sell": None, "full": False,
-                          "core": [{"item": "Luden's Echo", "owned": False, "next": True}],
-                          "picks": [{"item": "Zhonya's Hourglass", "reason": "x", "owned": False,
-                                     "next": False}], "unavailable": [], "range": "ranged"}
+            return ingame.elixir.advise(
+                self._tags, "Ahri", ["Ahri"], ["Jinx"], [], [], {}, 12, 900, 840, core=3
+            )
+
+        resolved_build: ClassVar[dict[str, object]] = {
+            "starting": ["Doran's Ring"],
+            "sell": None,
+            "full": False,
+            "core": [{"item": "Luden's Echo", "owned": False, "next": True}],
+            "picks": [{"item": "Zhonya's Hourglass", "reason": "x", "owned": False, "next": False}],
+            "unavailable": [],
+            "range": "ranged",
+        }
 
     eng = Engine(lcu, Stub(), ingame, Stub())
     eng.reader.offers, eng.reader.pins = [], {}
     game = eng.in_game()
     assert game["build"]["next"][0]["item"] == "Luden's Echo", game["build"]
     assert game["offer"][0]["icon"] and game["taken"][0]["name"] == names[1], game
-    assert game["elixir"]["state"] == "buy" and game["elixir"]["pick"] in ingame.elixir.ELIXIRS         and game["elixir"]["icon"], game["elixir"]
-    assert game["anvil_buy"]["state"] == "buy" and "4200" in game["anvil_buy"]["when"], game["anvil_buy"]
+    assert (
+        game["elixir"]["state"] == "buy"
+        and game["elixir"]["pick"] in ingame.elixir.ELIXIRS
+        and game["elixir"]["icon"]
+    ), game["elixir"]
+    assert game["anvil_buy"]["state"] == "buy" and "4200" in game["anvil_buy"]["when"], game[
+        "anvil_buy"
+    ]
     assert game["pending"] == []
     assert eng.in_game()["offer"], "oferta pe ecran ascunde intrebarea"
     eng.mon.augments, eng.mon.pending = [], [names[0], names[2]]
     pend = eng.in_game()["pending"]
     assert [p["name"] for p in pend] == [names[0], names[2]] and all(p["icon"] for p in pend), pend
     eng.mon.taken_augments.append(names[0])
-    assert eng.in_game()["pending"] == []        # alegerea confirmata inchide intrebarea
+    assert eng.in_game()["pending"] == []  # alegerea confirmata inchide intrebarea
     eng.command({"cmd": "skip"})
     assert eng.mon.pending == []
     eng.command({"cmd": "headliner", "name": "K/DA"})
     hl = eng.in_game()["headliner"]
     assert hl["picked"] == "K/DA" and hl["info"]["K/DA"]["effect"], hl
     assert "Command Line" in [o["name"] for o in hl["options"]] and hl["options"][0]["icon"], hl
-    eng.command({"cmd": "headliner", "name": "K/DA"})        # al doilea click il scoate
+    eng.command({"cmd": "headliner", "name": "K/DA"})  # al doilea click il scoate
     assert eng.in_game()["headliner"]["picked"] is None
     json.dumps(eng.state())
     print("selfcheck OK (stare pentru interfata)")
@@ -457,25 +616,39 @@ def selfcheck():
 
     real_post, bug_report.requests.post = bug_report.requests.post, fake_post
     try:
-        sent["reply"] = {"success": "false", "message": "This form needs Activation. We've sent you an email"}
+        sent["reply"] = {
+            "success": "false",
+            "message": "This form needs Activation. We've sent you an email",
+        }
         ok, text = bug_report.send("descriere suficient de lunga", "", "diag", "test")
-        assert not ok and "DESCHIDE EMAIL" in text, text
-        assert sent["headers"]["Origin"].startswith("https://") and sent["headers"]["Referer"], sent["headers"]
+        assert not ok and "OPEN EMAIL" in text, text
+        assert sent["headers"]["Origin"].startswith("https://") and sent["headers"]["Referer"], (
+            sent["headers"]
+        )
         sent["reply"] = {"success": "true"}
         bug_report._last_sent = 0.0
-        assert bug_report.send("descriere suficient de lunga", "a@b.ro", "diag", "test") == (True, "Trimis. Multumim!")
+        assert bug_report.send("descriere suficient de lunga", "a@b.ro", "diag", "test") == (
+            True,
+            "Sent. Thank you!",
+        )
         assert sent["json"]["email"] == "a@b.ro" and sent["json"]["message"].startswith("descriere")
-        assert bug_report.send("a doua imediat", "", "", "test")[1].startswith("Asteapta")     # cooldown
+        assert bug_report.send("a doua imediat", "", "", "test")[1].startswith("Wait")  # cooldown
     finally:
         bug_report.requests.post, bug_report._last_sent = real_post, 0.0
     print("selfcheck OK (bug report)")
 
     # OCR-ul real functioneaza si in exe (winrt e incarcat dinamic)
-    import ocr_augments
     from PIL import Image, ImageDraw, ImageFont
+
+    import ocr_augments
+
     pic = Image.new("RGB", (520, 120), (20, 26, 40))
-    ImageDraw.Draw(pic).text((20, 30), "Goliath  Eureka", fill=(240, 230, 210),
-                             font=ImageFont.truetype("C:/Windows/Fonts/segoeui.ttf", 44))
+    ImageDraw.Draw(pic).text(
+        (20, 30),
+        "Goliath  Eureka",
+        fill=(240, 230, 210),
+        font=ImageFont.truetype("C:/Windows/Fonts/segoeui.ttf", 44),
+    )
     read = ocr_augments.read_offer(pic, names)[0]
     assert "Goliath" in read or "Eureka" in read, f"OCR nu citeste nimic: {read}"
 
@@ -484,16 +657,19 @@ def already_running():
     """True daca o alta instanta a legat deja portul-santinela: doua fire de OCR
     care fotografiaza ecranul in acelasi timp sunt exact ce nu vrem in meci."""
     import socket
+
     global _lock_socket
     _lock_socket = socket.socket()
     try:
         _lock_socket.bind(("127.0.0.1", 52789))
     except OSError:
         return True
-    return False        # socket-ul ramane deschis cat traieste procesul
+    return False  # socket-ul ramane deschis cat traieste procesul
 
 
-PANEL_HWND = 0     # fereastra panoului (validata ca a Electron-ului nostru), ca sa-i citim pozitia reala
+PANEL_HWND = (
+    0  # fereastra panoului (validata ca a Electron-ului nostru), ca sa-i citim pozitia reala
+)
 
 
 def panel_rect():
@@ -501,10 +677,11 @@ def panel_rect():
     il comparam cu golul calculat: orice eroare de conversie DIP/pixeli se vede aici."""
     try:
         import win32gui
+
         if PANEL_HWND and win32gui.IsWindowVisible(PANEL_HWND):
             return list(win32gui.GetWindowRect(PANEL_HWND))
     except Exception:
-        pass
+        logger.exception('app.py:panel_rect failed; preserving fallback')
     return None
 
 
@@ -524,11 +701,19 @@ def show_in_taskbar(raw_hwnd):
     user32.GetWindowLongPtrW.argtypes = [wintypes.HWND, ctypes.c_int]
     user32.GetWindowLongPtrW.restype = ctypes.c_ssize_t
     user32.SetWindowLongPtrW.argtypes = [wintypes.HWND, ctypes.c_int, ctypes.c_ssize_t]
-    user32.SetWindowPos.argtypes = [wintypes.HWND, wintypes.HWND, ctypes.c_int, ctypes.c_int,
-                                   ctypes.c_int, ctypes.c_int, wintypes.UINT]
+    user32.SetWindowPos.argtypes = [
+        wintypes.HWND,
+        wintypes.HWND,
+        ctypes.c_int,
+        ctypes.c_int,
+        ctypes.c_int,
+        ctypes.c_int,
+        wintypes.UINT,
+    ]
     owner = wintypes.DWORD()
-    if not user32.GetWindowThreadProcessId(hwnd, ctypes.byref(owner)) \
-            or owner.value != int(os.environ["ARAM_UI_PID"]):
+    if not user32.GetWindowThreadProcessId(hwnd, ctypes.byref(owner)) or owner.value != int(
+        os.environ["ARAM_UI_PID"]
+    ):
         return
     global PANEL_HWND
     PANEL_HWND = hwnd
@@ -590,6 +775,7 @@ def main():
             else:
                 engine.command(msg)
         except Exception as e:
+            logger.exception('app.py:main failed; preserving fallback')
             emit({"t": "error", "text": f"{type(e).__name__}: {e}"})
     stop.set()
     engine.reader.stop.set()
@@ -602,5 +788,6 @@ if __name__ == "__main__":
         main()
     except Exception:
         import traceback
+
         (HOME / "eroare.log").write_text(traceback.format_exc(), encoding="utf-8")
         raise

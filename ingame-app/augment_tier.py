@@ -32,27 +32,74 @@ AUGMENT_MAP = pathlib.Path(__file__).with_name("data") / "augment-map.json"
 # doar completarile din datele Riot.
 UI_WORDS = {
     # etichetele de categorie de pe cardul de augment
-    "damage", "utility", "speed", "tank", "mage", "support", "fighter",
-    "marksman", "assassin", "hybrid",
+    "damage",
+    "utility",
+    "speed",
+    "tank",
+    "mage",
+    "support",
+    "fighter",
+    "marksman",
+    "assassin",
+    "hybrid",
     # nume de statistici, care apar in descrierile oricarui augment
-    "ability haste", "life steal", "attack damage", "ability power", "armor",
-    "magic resist", "health", "max health", "mana", "move speed",
-    "movement speed", "critical strike", "critical chance", "attack speed",
-    "shield", "heal", "area size", "duration", "exp", "long range",
-    "pickup radius", "projectile count",
+    "ability haste",
+    "life steal",
+    "attack damage",
+    "ability power",
+    "armor",
+    "magic resist",
+    "health",
+    "max health",
+    "mana",
+    "move speed",
+    "movement speed",
+    "critical strike",
+    "critical chance",
+    "attack speed",
+    "shield",
+    "heal",
+    "area size",
+    "duration",
+    "exp",
+    "long range",
+    "pickup radius",
+    "projectile count",
     # rarități si text de magazin
-    "mythical", "epic", "legendary", "common", "rare", "prismatic",
-    "gold", "silver",
+    "mythical",
+    "epic",
+    "legendary",
+    "common",
+    "rare",
+    "prismatic",
+    "gold",
+    "silver",
     # rezerve de dezvoltare din datele Riot, fara corespondent in joc
-    "???", "null augment", "replace augment", "level augments", "augment 405",
+    "???",
+    "null augment",
+    "replace augment",
+    "level augments",
+    "augment 405",
 }
 
 
 # Scoase din Mayhem la patch 26.21: CommunityDragon le mai are in fisier, iar in
 # vocabularul OCR ar produce augmente care nu mai pot aparea.
-REMOVED = {"combusting interest", "crit 'n cast", "critical missile", "dimension shift",
-           "dropbear", "dropkick", "fan the hammer", "hide on bush", "high roller",
-           "our healing", "poro stampede", "spiritual purification", "ult bot"}
+REMOVED = {
+    "combusting interest",
+    "crit 'n cast",
+    "critical missile",
+    "dimension shift",
+    "dropbear",
+    "dropkick",
+    "fan the hammer",
+    "hide on bush",
+    "high roller",
+    "our healing",
+    "poro stampede",
+    "spiritual purification",
+    "ult bot",
+}
 
 
 def flatten_names(global_augments):
@@ -66,7 +113,7 @@ def flatten_names(global_augments):
     bine decat sa lipseasca.
     """
     names = []
-    for rarity, block in global_augments.items():
+    for block in global_augments.values():
         if not isinstance(block, dict):
             continue
         for tier_names in block.values():
@@ -95,16 +142,15 @@ def load_champion_tiers(champion):
         return _champ_cache[champion]
 
     import bundle
-    from build_scraper import slug   # aceeasi regula de nume ca la scraping
+    from build_scraper import slug  # aceeasi regula de nume ca la scraping
+
     path = CHAMP_DIR / f"{slug(champion)}.json"
     table = None
     data = (bundle.get().get("augments") or {}).get(slug(champion))
     if data is None and path.exists():
         data = json.loads(path.read_text(encoding="utf-8"))
     if data is not None:
-        table = {name: tier
-                 for tier, names in data.get("tiers", {}).items()
-                 for name in names}
+        table = {name: tier for tier, names in data.get("tiers", {}).items() for name in names}
     _champ_cache[champion] = table
     return table
 
@@ -113,7 +159,7 @@ def lookup_tier(name, global_augments, champion_tiers=None):
     if champion_tiers and name in champion_tiers:
         return champion_tiers[name]
 
-    for rarity, block in global_augments.items():
+    for block in global_augments.values():
         if not isinstance(block, dict):
             continue
         for tier, names in block.items():
@@ -126,8 +172,10 @@ def top_by_rarity(global_augments, champion=None, n=3):
     """{raritate: [{name, tier}]}: cele mai bune n augmente pe raritate, pentru
     campion. Rezerva cand OCR-ul nu vede oferta: o oferta e mereu de o singura
     raritate, deci cauti pe carduri numele din randul ei."""
+
     def rank(r):
         return TIER_ORDER.index(r["tier"]) if r["tier"] in TIER_ORDER else len(TIER_ORDER)
+
     top = {}
     for rarity, block in global_augments.items():
         if isinstance(block, dict):
@@ -143,8 +191,7 @@ def rate(names, global_augments, champion=None):
     mai bun augment pentru campionul pe care il joc acum".
     """
     champion_tiers = load_champion_tiers(champion)
-    rated = [{"name": n, "tier": lookup_tier(n, global_augments, champion_tiers)}
-             for n in names]
+    rated = [{"name": n, "tier": lookup_tier(n, global_augments, champion_tiers)} for n in names]
 
     best_i, best_rank = None, None
     for i, r in enumerate(rated):
@@ -152,5 +199,5 @@ def rate(names, global_augments, champion=None):
         if best_rank is None or rank < best_rank:
             best_i, best_rank = i, rank
     for i, r in enumerate(rated):
-        r["is_best"] = (i == best_i)
+        r["is_best"] = i == best_i
     return rated

@@ -56,8 +56,10 @@ EXTRACT_JS = """(sections) => {
   return out;
 }"""
 
-_UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-       "(KHTML, like Gecko) Chrome/120.0 Safari/537.36")
+_UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/120.0 Safari/537.36"
+)
 
 
 # slug-ul "strip tot ce nu e alfanumeric" nimereste u.gg pentru 171/173
@@ -90,6 +92,7 @@ def cache_path(champion):
 
 def load_cached(champion):
     import bundle
+
     from_bundle = (bundle.get().get("builds") or {}).get(slug(champion))
     if from_bundle:
         return from_bundle
@@ -121,12 +124,11 @@ def scrape(champion, headless=True):
         finally:
             browser.close()
 
-    build = {"champion": champion, "source": url,
-             "summoners": raw.get("summoners") or []}
+    build = {"champion": champion, "source": url, "summoners": raw.get("summoners") or []}
     pool, seen = [], set()
     for key, coords in raw.items():
         if key == "summoners":
-            continue   # nume simple, nu coordonate de sprite -- deja pus mai sus
+            continue  # nume simple, nu coordonate de sprite -- deja pus mai sus
         names = resolve_coords(coords)
         build[key] = names
         for n in names:
@@ -138,8 +140,9 @@ def scrape(champion, headless=True):
     if not pool:
         return None  # nu risipim cache-ul cu un build gol (patch/layout schimbat)
 
-    cache_path(champion).write_text(json.dumps(build, indent=1, ensure_ascii=False),
-                                     encoding="utf-8")
+    cache_path(champion).write_text(
+        json.dumps(build, indent=1, ensure_ascii=False), encoding="utf-8"
+    )
     return build
 
 

@@ -14,6 +14,7 @@ normale. Tot ce importa ele la runtime trebuie declarat in hiddenimports.
 """
 
 import pathlib
+import ssl
 
 from PyInstaller.utils.hooks import collect_all
 
@@ -35,12 +36,18 @@ datas = [
     ("ingame-app/stat_anvil.py", "ingame-app"),
     ("ingame-app/elixir.py", "ingame-app"),
     ("ingame-app/rules_engine.py", "ingame-app"),
+    ("ingame-app/item_candidates.py", "ingame-app"),
     ("ingame-app/build_scraper.py", "ingame-app"),
     ("ingame-app/build_icons.py", "ingame-app"),
     ("ingame-app/data/icons", "ingame-app/data/icons"),
     ("ingame-app/data/augments", "ingame-app/data/augments"),
     ("ingame-app/data/builds", "ingame-app/data/builds"),
 ]
+
+# The bundled development runtime loads this file when creating SSL contexts.
+runtime_ca = pathlib.Path(ssl.__file__).with_name("codex-rejected-cas.pem")
+if runtime_ca.exists():
+    datas.append((str(runtime_ca), "."))
 
 # Toate .json-urile din data/ (champion-tags, item-rules, augment-map etc.)
 for json_file in sorted(pathlib.Path("ingame-app/data").glob("*.json")):

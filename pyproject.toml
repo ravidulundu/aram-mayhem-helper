@@ -1,0 +1,27 @@
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = [".", "ingame-app", "lcu-app"]
+extend-exclude = [".venv", "build", "dist", "ui/node_modules"]
+
+[tool.ruff.format]
+quote-style = "preserve"
+
+[tool.pyright]
+include = ["*.py", "ingame-app", "lcu-app", "ui/test", "ui/assets", "overwolf-app/scripts"]
+exclude = ["**/__pycache__", ".venv", "build", "dist", "ui/node_modules"]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.12"
+pythonPlatform = "Windows"
+typeCheckingMode = "standard"
+executionEnvironments = [
+    { root = "ingame-app", extraPaths = [".", "lcu-app"] },
+    { root = "lcu-app", extraPaths = [".", "ingame-app"] },
+    { root = ".", extraPaths = ["ingame-app", "lcu-app"] },
+]
+
+[tool.pytest.ini_options]
+testpaths = [".", "ingame-app"]
+norecursedirs = [".git", ".venv", "build", "dist", "node_modules"]
+pythonpath = [".", "ingame-app", "lcu-app"]

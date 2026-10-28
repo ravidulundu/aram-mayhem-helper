@@ -16,6 +16,7 @@ pe API-ul asta) -- ramane limitarea cunoscuta, vezi README.
 """
 
 import json
+import logging
 import pathlib
 import re
 import sys
@@ -32,6 +33,8 @@ import rules_engine
 import stat_anvil
 from build_scraper import load_cached, slug
 
+logger = logging.getLogger(__name__)
+
 # augmentele alese in meciul curent, ca sa nu se piarda daca repornesti aplicatia
 TAKEN_FILE = pathlib.Path(__import__("tempfile").gettempdir()) / "aram-mayhem-taken.json"
 
@@ -44,8 +47,8 @@ DATA = pathlib.Path(__file__).with_name("data")
 OFFER_TTL = 25.0
 # cardurile de augment, ca fractii din fereastra jocului (masurate pe o captura reala)
 CARD_TOP_Y, CARD_BOTTOM_Y, CARD_HALF_W = 0.17, 0.68, 0.085
-CURSOR_FRESH = 8.0          # secunde cat un cursor lasat pe un card mai conteaza ca alegere
-OFFER_GOLD_WINDOW = 12.0   # secunde dupa oferta in care un salt de aur = augmentul ales
+CURSOR_FRESH = 8.0  # secunde cat un cursor lasat pe un card mai conteaza ca alegere
+OFFER_GOLD_WINDOW = 12.0  # secunde dupa oferta in care un salt de aur = augmentul ales
 
 # secunde intre doua citiri OCR. Cu oferta pe ecran citim des (un reroll se vede
 # in <0.5 s); in rest rar. Citirea rapida costa ~60 ms, deci nu apasa pe procesor.
@@ -58,10 +61,24 @@ TEXT = "#e6e6e6"
 MUTED = "#7a8899"
 HOT = "#ff4655"
 
-TIER_COLORS = {"S+": "#ff4655", "S": "#ff9a3c", "A": "#ffd166",
-               "B": "#8ac926", "C": "#4a9de0", "D": "#6b7280", "?": "#3f4650"}
-TIER_FG = {"S+": "#ffffff", "S": "#2b1400", "A": "#3a2c00",
-           "B": "#182b00", "C": "#04203a", "D": "#ffffff", "?": "#c3cbd6"}
+TIER_COLORS = {
+    "S+": "#ff4655",
+    "S": "#ff9a3c",
+    "A": "#ffd166",
+    "B": "#8ac926",
+    "C": "#4a9de0",
+    "D": "#6b7280",
+    "?": "#3f4650",
+}
+TIER_FG = {
+    "S+": "#ffffff",
+    "S": "#2b1400",
+    "A": "#3a2c00",
+    "B": "#182b00",
+    "C": "#04203a",
+    "D": "#ffffff",
+    "?": "#c3cbd6",
+}
 
 
 def load_json(name):
@@ -70,6 +87,7 @@ def load_json(name):
 
 def normalize_roster(raw, champ_id_map):
     """championName (id intern Riot) -> nume afisat, pentru allies/enemies."""
+
     def fix(name):
         return champ_id_map.get(name, name)
 
@@ -92,8 +110,15 @@ class Monitor:
     aici se atribuie mereu obiecte noi, nu se modifica cele existente.
     """
 
-    def __init__(self, champ_id_map, champion_tags, rules, global_augments,
-                 item_stats=None, augment_items=None):
+    def __init__(
+        self,
+        champ_id_map,
+        champion_tags,
+        rules,
+        global_augments,
+        item_stats=None,
+        augment_items=None,
+    ):
         self.champ_id_map = champ_id_map
         self.champion_tags = champion_tags
         self.rules = rules
@@ -112,14 +137,14 @@ class Monitor:
         self.taken_augments = []
 
         self.stop = threading.Event()
-        self.phase = "waiting_for_game"   # waiting_for_game | in_game
+        self.phase = "waiting_for_game"  # waiting_for_game | in_game
         self.roster = None
         self.build = None
-        self.resolved_build = None   # {core, picks} -- build final, nu meniu
-        self.augments = []           # ultimele augmente detectate pe ecran
-        self.ocr_status = ""         # de ce e goala lista de mai sus, daca e
+        self.resolved_build = None  # {core, picks} -- build final, nu meniu
+        self.augments = []  # ultimele augmente detectate pe ecran
+        self.ocr_status = ""  # de ce e goala lista de mai sus, daca e
         self.status = ""
-        self.stat_anvil = []         # shard-urile oferite acum, cu recomandare
+        self.stat_anvil = []  # shard-urile oferite acum, cu recomandare
 
         self._known_champion = None
         self._last_augments = ()
@@ -130,17 +155,17 @@ class Monitor:
         self._anvil_miss = 0
         self._last_stat_anvil = ()
         self._slot = {}
-        self.live_range = None       # raza de atac din joc (Draw Your Sword o schimba)
-        self.game_time = None        # secunde de joc, pentru indicatorul de elixir
+        self.live_range = None  # raza de atac din joc (Draw Your Sword o schimba)
+        self.game_time = None  # secunde de joc, pentru indicatorul de elixir
         self._elixir = elixir.Tracker()
         self.elixir_until = 0.0
-        self.headliner = None        # ales de tine din panou: jocul nu expune regula meciului
-        self.pending = []            # ultima oferta disparuta fara alegere cunoscuta
-        self._ttl_names = []         # oferta ascunsa dupa OFFER_TTL, dar poate inca pe ecran
-        self._cursor = None          # (cardul 0-2 sub cursor, moment): cardul pe care dai click
-        self._last_slots = {}        # {nume: card 0-2} din ultima citire cu cel putin 2 carduri
-        self._augment_ids = None     # id intern -> nume, incarcat la prima nevoie
-        self._game = None            # cheia meciului, pentru augmentele salvate
+        self.headliner = None  # ales de tine din panou: jocul nu expune regula meciului
+        self.pending = []  # ultima oferta disparuta fara alegere cunoscuta
+        self._ttl_names = []  # oferta ascunsa dupa OFFER_TTL, dar poate inca pe ecran
+        self._cursor = None  # (cardul 0-2 sub cursor, moment): cardul pe care dai click
+        self._last_slots = {}  # {nume: card 0-2} din ultima citire cu cel putin 2 carduri
+        self._augment_ids = None  # id intern -> nume, incarcat la prima nevoie
+        self._game = None  # cheia meciului, pentru augmentele salvate
         self._saved_taken = []
         # OCR-ul costa cel mai mult procesor din toata aplicatia, deci il rulam
         # des doar cand e probabil sa apara o oferta: la inceputul meciului, dupa
@@ -149,11 +174,16 @@ class Monitor:
         self._last_level = None
         self._last_gold = None
         # date pentru disponibilitatea itemelor si itemi buni cu augmentul ales
-        self._static = {"recipes": self._optional("item-recipes.json"),
-                        "ranges": self._optional("champion-range.json"),
-                        "effects": self._optional("augment-effects.json"),
-                        "item_names": self._optional("item-ids.json"),
-                        "item_groups": self._optional("item-groups.json")}
+        catalog = self._optional("item-catalog.json")
+        self._static = {
+            "recipes": self._optional("item-recipes.json"),
+            "ranges": self._optional("champion-range.json"),
+            "effects": self._optional("augment-effects.json"),
+            "item_names": self._optional("item-ids.json"),
+            "item_catalog": catalog.get("items", {}),
+            "catalog_version": catalog.get("version"),
+            "item_groups": self._optional("item-groups.json"),
+        }
         # alegerea augmentului, dedusa din ecran: dupa ce alegi, cardul ales ramane
         # singur o clipa. Tinem minte ultima oferta completa si cate citiri la rand
         # a ramas un singur card din ea.
@@ -168,7 +198,7 @@ class Monitor:
             if m:
                 self._aug_gold[name] = int(m.group(1))
         self._recent_offer, self._recent_at = [], 0.0
-        self._seen_offers = set()    # augmentele oferite in meciul asta, pentru quest-uri
+        self._seen_offers = set()  # augmentele oferite in meciul asta, pentru quest-uri
         self._prev_own, self._last_jump = None, 0
 
     @staticmethod
@@ -186,7 +216,9 @@ class Monitor:
         ecranul se comporta altfel, nu se intampla nimic, iar click-ul pe insigna
         ramane varianta sigura.
         """
-        matches = [n for n in (ocr_augments.last_read.get("matches") or []) if n and n not in self._shards]
+        matches = [
+            n for n in (ocr_augments.last_read.get("matches") or []) if n and n not in self._shards
+        ]
         if len(matches) >= 2:
             self._last_full, self._single, self._single_n = matches, None, 0
             return
@@ -203,12 +235,15 @@ class Monitor:
     def _note_activity(self, level, gold):
         now = time.monotonic()
         if self._last_level is None:
-            self._fast_until = now + 90          # meci nou
+            self._fast_until = now + 90  # meci nou
         elif isinstance(level, int) and level > self._last_level:
-            self._fast_until = now + 45          # level-up: oferta de augment
-        if (isinstance(gold, (int, float)) and self._last_gold is not None
-                and gold <= self._last_gold - 700):
-            self._fast_until = now + 30          # cheltuiala mare: poate Stat Anvil
+            self._fast_until = now + 45  # level-up: oferta de augment
+        if (
+            isinstance(gold, (int, float))
+            and self._last_gold is not None
+            and gold <= self._last_gold - 700
+        ):
+            self._fast_until = now + 30  # cheltuiala mare: poate Stat Anvil
         self._last_jump = 0
         if isinstance(gold, (int, float)) and self._last_gold is not None:
             self._last_jump = gold - self._last_gold
@@ -231,10 +266,13 @@ class Monitor:
         if jump < 200 or now - self._recent_at > OFFER_GOLD_WINDOW:
             return
         effects = self._static.get("effects") or {}
-        cands = [n for n in self._recent_offer
-                 if (n in self.augment_items or (effects.get(n) or {}).get("any"))
-                 and n not in self.taken_augments
-                 and jump >= self._aug_gold.get(n, 250) - 30]
+        cands = [
+            n
+            for n in self._recent_offer
+            if (n in self.augment_items or (effects.get(n) or {}).get("any"))
+            and n not in self.taken_augments
+            and jump >= self._aug_gold.get(n, 250) - 30
+        ]
         # +500 il acopera si pe unul de 250: castiga cel mai mare care incape
         top = max((self._aug_gold.get(n, 250) for n in cands), default=0)
         cands = [n for n in cands if self._aug_gold.get(n, 250) == top]
@@ -254,8 +292,12 @@ class Monitor:
         if not new or self._last_jump < -50 or now - self._recent_at > OFFER_GOLD_WINDOW:
             return
         effects = self._static.get("effects") or {}
-        cands = [n for n in self._recent_offer if n not in self.taken_augments
-                 and new & {rules_engine.item_key(g) for g in (effects.get(n) or {}).get("gives") or ()}]
+        cands = [
+            n
+            for n in self._recent_offer
+            if n not in self.taken_augments
+            and new & {rules_engine.item_key(g) for g in (effects.get(n) or {}).get("gives") or ()}
+        ]
         if len(cands) == 1:
             self.taken_augments.append(cands[0])
             self._recent_offer, self._recent_at = [], 0.0
@@ -267,9 +309,13 @@ class Monitor:
         ar schimba setul de iteme), iar elixirul nu e in inventar acum.
         """
         own = {rules_engine.item_key(n) for n in own_items or ()}
-        if (self._prev_own is not None and own == self._prev_own
-                and elixir.PRICE - 70 <= -self._last_jump <= elixir.PRICE + 100
-                and (self._last_level or 0) >= elixir.LEVEL and not elixir.owned(own_items)):
+        if (
+            self._prev_own is not None
+            and own == self._prev_own
+            and elixir.PRICE - 70 <= -self._last_jump <= elixir.PRICE + 100
+            and (self._last_level or 0) >= elixir.LEVEL
+            and not elixir.owned(own_items)
+        ):
             self._elixir.mark(self.game_time)
 
     def mark_elixir(self):
@@ -302,8 +348,11 @@ class Monitor:
         """
         own = {rules_engine.item_key(n) for n in own_items or ()}
         build = self.build or {}
-        planned = {rules_engine.item_key(n) for k in ("core", "fourth", "fifth", "sixth", "pool")
-                   for n in build.get(k) or ()}
+        planned = {
+            rules_engine.item_key(n)
+            for k in ("core", "fourth", "fifth", "sixth", "pool")
+            for n in build.get(k) or ()
+        }
         for name, eff in (self._static.get("effects") or {}).items():
             need = {rules_engine.item_key(n) for n in eff.get("needs") or ()}
             if not need or eff.get("combine") or name in self.taken_augments:
@@ -328,6 +377,7 @@ class Monitor:
             try:
                 self._roster_cycle()
             except Exception as e:
+                logger.exception('ingame-app/app.py:_run_roster failed; preserving fallback')
                 self.status = f"{type(e).__name__}: {e}"
             self.stop.wait(6.0 if self.phase == "waiting_for_game" else 4.0)
 
@@ -341,6 +391,7 @@ class Monitor:
                 try:
                     self._ocr_cycle()
                 except Exception as e:
+                    logger.exception('ingame-app/app.py:_run_ocr failed; preserving fallback')
                     # inainte disparea tacut; acum macar UI-ul poate arata
                     # ca OCR-ul chiar a picat, in loc sa para ca nu face nimic
                     self.ocr_status = f"OCR: {type(e).__name__}: {e}"
@@ -369,8 +420,11 @@ class Monitor:
         self._spell_pick(roster.get("spell_augments"))
 
         # augmentele alese supravietuiesc unei reporniri a aplicatiei in meci
-        game = "|".join([str((ap or {}).get("riotId")), str(roster.get("local_champion"))]
-                        + sorted(roster.get("allies") or []) + sorted(roster.get("enemies") or []))
+        game = "|".join(
+            [str((ap or {}).get("riotId")), str(roster.get("local_champion"))]
+            + sorted(roster.get("allies") or [])
+            + sorted(roster.get("enemies") or [])
+        )
         if game != self._game:
             self._game = game
             try:
@@ -381,12 +435,14 @@ class Monitor:
                 pass
 
         champ = roster["local_champion"]
-        if champ and champ != self._known_champion:
+        fresh_build = load_cached(champ) if champ else None
+        if champ and (champ != self._known_champion or fresh_build is not self.build):
             self._known_champion = champ
             # niciodata scraping live: doar citim ce exista deja in cache
-            self.build = load_cached(champ)
-            self.status = "" if self.build else (
-                f"{champ}: nu e in cache -- ruleaza prefetch_builds.py {champ}")
+            self.build = fresh_build
+            self.status = (
+                "" if self.build else (f"{champ}: not cached -- run prefetch_builds.py {champ}")
+            )
 
         self._recompute_build()
 
@@ -394,8 +450,9 @@ class Monitor:
         found, self.ocr_status = ocr_augments.detect_offered_augments(self.ocr_names)
         # pe ce card (0/1/2) sta fiecare nume: insigna trebuie sa cada peste
         # cardul ei, nu in ordinea in care a fost citit numele
-        self._slot.update({n: i for i, n in enumerate(ocr_augments.last_read.get("matches") or [])
-                           if n})
+        self._slot.update(
+            {n: i for i, n in enumerate(ocr_augments.last_read.get("matches") or []) if n}
+        )
         shards = [n for n in found if n in self._shards]
         found = [n for n in found if n not in self._shards]
         if len(found) >= 2:
@@ -405,7 +462,7 @@ class Monitor:
             self._last_slots = {n: i for i, n in enumerate(matches) if n and n not in self._shards}
         self._anvil(shards)
         if len(shards) >= 2:
-            found = []          # ecran de Stat Anvil, nu oferta de augment
+            found = []  # ecran de Stat Anvil, nu oferta de augment
         self._track_choice()
 
         # o oferta dispare de pe ecran dupa ce alegi; fara asta lista ramanea
@@ -448,7 +505,7 @@ class Monitor:
             self._offer_pool = {}
 
         if not self._offer_pool:
-            self._offer_since = now      # abia acum incepe o oferta noua
+            self._offer_since = now  # abia acum incepe o oferta noua
 
         # OCR-ul citeste de fiecare data alt subset din aceleasi 3 carduri:
         # fontul e decorativ, cardurile au animatie de aparitie, iar unele
@@ -460,7 +517,9 @@ class Monitor:
         self._seen_offers.update(self._offer_pool)
 
         champ = (self.roster or {}).get("local_champion")
-        names = sorted(self._offer_pool, key=self._offer_pool.get)[:ocr_augments.MAX_OFFER]
+        names = sorted(self._offer_pool, key=lambda name: self._offer_pool[name])[
+            : ocr_augments.MAX_OFFER
+        ]
         names.sort(key=lambda n: self._slot.get(n, ocr_augments.MAX_OFFER))
         key = (tuple(sorted(names)), champ)
 
@@ -471,17 +530,21 @@ class Monitor:
             # mai ai de ales. Le ascundem ca sa nu acopere build-ul.
             if now - self._offer_since > OFFER_TTL:
                 self._expired_names = set(self._offer_pool)
-                self._ttl_names = list(self._offer_pool)     # inca pe ecran: intrebarea vine cand dispar
+                self._ttl_names = list(
+                    self._offer_pool
+                )  # inca pe ecran: intrebarea vine cand dispar
                 self.augments = []
                 self._offer_pool = {}
                 self._last_augments = ()
-                self.ocr_status = "oferta veche, ascunsa"
+                self.ocr_status = "previous offer hidden"
             return
 
         self._last_augments = key
         # campionul conteaza: acelasi augment poate fi S+ pe unul si B pe altul
-        self.augments = [dict(a, slot=self._slot.get(a["name"]))
-                         for a in augment_tier.rate(names, self.global_augments, champ)]
+        self.augments = [
+            dict(a, slot=self._slot.get(a["name"]))
+            for a in augment_tier.rate(names, self.global_augments, champ)
+        ]
 
     def _anvil(self, found):
         """Shard-urile de pe ecran -> recomandare. Doua citiri goale la rand
@@ -504,18 +567,30 @@ class Monitor:
             return
         self._last_stat_anvil = key
 
-        self.stat_anvil = [dict(r, slot=self._slot.get(r["name"]))
-                           for r in stat_anvil.recommend(found, self.champion_tags, champ, enemies)]
+        self.stat_anvil = [
+            dict(r, slot=self._slot.get(r["name"]))
+            for r in stat_anvil.recommend(found, self.champion_tags, champ, enemies)
+        ]
 
     def _recompute_build(self):
         if not self.roster or not self.build or not self.build.get("pool"):
             self.resolved_build = None
             return
         import bundle
+
+        data = bundle.get()
         extra = dict(self._static)
+        if data.get("version") != extra.get("catalog_version"):
+            extra["item_catalog"] = {}
+        elif "item_catalog" in data:
+            extra["item_catalog"] = data["item_catalog"]
         champ = self.roster.get("local_champion")
-        extra["aug_table"] = (bundle.get().get("augment_builds") or {}).get(slug(champ), {}) \
-            if champ else {}
+        extra["aug_table"] = (
+            (data.get("augment_builds") or {}).get(slug(champ), {}) if champ else {}
+        )
+        extra["aug_samples"] = (
+            (data.get("augment_samples") or {}).get(slug(champ), {}) if champ else {}
+        )
         extra["live_range"] = self.live_range
         implied = rules_engine.implied_augment(champ, self.taken_augments, extra)
         if implied:
@@ -523,13 +598,21 @@ class Monitor:
         if self._game and self.taken_augments != self._saved_taken:
             self._saved_taken = list(self.taken_augments)
             try:
-                TAKEN_FILE.write_text(json.dumps({"game": self._game, "taken": self._saved_taken}),
-                                      encoding="utf-8")
+                TAKEN_FILE.write_text(
+                    json.dumps({"game": self._game, "taken": self._saved_taken}), encoding="utf-8"
+                )
             except OSError:
                 pass
         self.resolved_build = rules_engine.resolve_build(
-            self.build, self.roster, self.champion_tags, self.rules,
-            self.item_stats, self.taken_augments, self.augment_items, extra)
+            self.build,
+            self.roster,
+            self.champion_tags,
+            self.rules,
+            self.item_stats,
+            self.taken_augments,
+            self.augment_items,
+            extra,
+        )
 
     def anvil_advice(self):
         """Stat Anvil (750g): cand sa-l iei, cu aurul si cat mai ai pana la build complet."""
@@ -538,8 +621,15 @@ class Monitor:
             return None
         left_items, left_gold, next_gold = self._build_cost()
         return stat_anvil.advise(
-            self._last_level, self._last_gold, r.get("own_items") or [], bool(rb.get("full")),
-            self._core_count(), left_gold, left_items, next_gold)
+            self._last_level,
+            self._last_gold,
+            r.get("own_items") or [],
+            bool(rb.get("full")),
+            self._core_count(),
+            left_gold,
+            left_items,
+            next_gold,
+        )
 
     def _build_cost(self):
         """(iteme ramase, aurul pentru ele, aurul pentru itemul urmator): ce mai ai de cumparat din build."""
@@ -548,14 +638,21 @@ class Monitor:
             return 0, 0, 0
         recipes, own = self._static.get("recipes") or {}, r.get("own_items") or []
         left = [e["item"] for e in rb["core"] + rb["picks"] if not e["owned"]]
-        return (len(left), rules_engine.remaining_gold(left, own, recipes),
-                rules_engine.remaining_gold(left[:1], own, recipes))
+        return (
+            len(left),
+            rules_engine.remaining_gold(left, own, recipes),
+            rules_engine.remaining_gold(left[:1], own, recipes),
+        )
 
     def _core_count(self):
         stats = self.item_stats
-        return sum(1 for n in rules_engine.slot_items((self.roster or {}).get("own_items"), stats)
-                   if not (stats.get(n) or {}).get("component") and not (stats.get(n) or {}).get("boots")
-                   and not rules_engine.item_key(n).startswith(rules_engine.STARTER_PREFIXES))
+        return sum(
+            1
+            for n in rules_engine.slot_items((self.roster or {}).get("own_items"), stats)
+            if not (stats.get(n) or {}).get("component")
+            and not (stats.get(n) or {}).get("boots")
+            and not rules_engine.item_key(n).startswith(rules_engine.STARTER_PREFIXES)
+        )
 
     def _note_cursor(self):
         """Cardul de sub cursor, cat timp oferta e pe ecran: alegerea e un click pe card, deci
@@ -568,7 +665,7 @@ class Monitor:
         x, y = x - rect[0], y - rect[1]
         if not CARD_TOP_Y * H <= y <= CARD_BOTTOM_Y * H:
             return
-        for i, fx in enumerate(ocr_augments.layout_for(W, H)["fx"][:ocr_augments.MAX_OFFER]):
+        for i, fx in enumerate(ocr_augments.layout_for(W, H)["fx"][: ocr_augments.MAX_OFFER]):
             if abs(x - fx * W) <= CARD_HALF_W * W:
                 self._cursor = (i, time.monotonic())
 
@@ -599,9 +696,22 @@ class Monitor:
         anvil = self.anvil_advice()
         reserve = next_gold + (stat_anvil.PRICE if anvil and anvil.get("state") == "buy" else 0)
         return elixir.advise(
-            self.champion_tags, r["local_champion"], r.get("allies"), r.get("enemies"),
-            r.get("enemy_items"), r.get("own_items"), stats, self._last_level, self._last_gold,
-            self.game_time, self.elixir_until, rules_engine.build_full(own, stats), core, left_items, reserve)
+            self.champion_tags,
+            r["local_champion"],
+            r.get("allies"),
+            r.get("enemies"),
+            r.get("enemy_items"),
+            r.get("own_items"),
+            stats,
+            self._last_level,
+            self._last_gold,
+            self.game_time,
+            self.elixir_until,
+            rules_engine.build_full(own, stats),
+            core,
+            left_items,
+            reserve,
+        )
 
     def _reset(self):
         self.phase = "waiting_for_game"
@@ -630,7 +740,7 @@ class Monitor:
         self.live_range = None
         self._game = None
         self._saved_taken = []
-        self.taken_augments = []   # meci nou, augmente noi
+        self.taken_augments = []  # meci nou, augmente noi
         self._fast_until = 0.0
         self._last_level = None
         self._last_gold = None
@@ -647,7 +757,7 @@ def build_ui(mon):
 
     ctk.set_appearance_mode("dark")
     root = ctk.CTk()
-    root.title("ARAM Mayhem - in joc")
+    root.title("ARAM Mayhem - in game")
     # fereastra normala (bara de titlu Windows), ca sa poata fi mutata si
     # redimensionata cu mana -- pe un setup cu mai multe monitoare, pozitia
     # calculata automat poate iesi in afara ecranului vizibil
@@ -663,48 +773,74 @@ def build_ui(mon):
 
     head = ctk.CTkFrame(frame, fg_color="transparent")
     head.pack(fill="x", padx=10, pady=(9, 6))
-    ctk.CTkLabel(head, text="ARAM MAYHEM - IN JOC", text_color=MUTED,
-                 font=("Segoe UI", 10, "bold")).pack(side="left")
+    ctk.CTkLabel(
+        head, text="ARAM MAYHEM - IN GAME", text_color=MUTED, font=("Segoe UI", 10, "bold")
+    ).pack(side="left")
 
     body = ctk.CTkFrame(frame, fg_color="transparent")
     body.pack(fill="both", expand=True, padx=10, pady=(0, 10))
 
     def section(text):
-        ctk.CTkLabel(body, text=text, text_color=MUTED, anchor="w",
-                     font=("Segoe UI", 9, "bold")).pack(fill="x", pady=(8, 3))
+        ctk.CTkLabel(
+            body, text=text, text_color=MUTED, anchor="w", font=("Segoe UI", 9, "bold")
+        ).pack(fill="x", pady=(8, 3))
 
     def augment_row(entry):
         color = TIER_COLORS.get(entry["tier"], TIER_COLORS["?"])
-        row = ctk.CTkFrame(body, fg_color=CARD, corner_radius=8,
-                           border_width=2 if entry["is_best"] else 0, border_color=color)
+        row = ctk.CTkFrame(
+            body,
+            fg_color=CARD,
+            corner_radius=8,
+            border_width=2 if entry["is_best"] else 0,
+            border_color=color,
+        )
         row.pack(fill="x", pady=3)
-        ctk.CTkLabel(row, text=entry["tier"], width=34, height=24, corner_radius=6,
-                     fg_color=color, text_color=TIER_FG.get(entry["tier"], "#fff"),
-                     font=("Segoe UI", 12, "bold")).pack(side="left", padx=8, pady=7)
-        ctk.CTkLabel(row, text=entry["name"], text_color=TEXT, anchor="w",
-                     font=("Segoe UI", 12)).pack(side="left", padx=(2, 6))
+        ctk.CTkLabel(
+            row,
+            text=entry["tier"],
+            width=34,
+            height=24,
+            corner_radius=6,
+            fg_color=color,
+            text_color=TIER_FG.get(entry["tier"], "#fff"),
+            font=("Segoe UI", 12, "bold"),
+        ).pack(side="left", padx=8, pady=7)
+        ctk.CTkLabel(
+            row, text=entry["name"], text_color=TEXT, anchor="w", font=("Segoe UI", 12)
+        ).pack(side="left", padx=(2, 6))
         if entry["is_best"]:
-            ctk.CTkLabel(row, text="BEST", text_color=color, anchor="e",
-                         font=("Segoe UI", 9, "bold")).pack(side="right", padx=8)
+            ctk.CTkLabel(
+                row, text="BEST", text_color=color, anchor="e", font=("Segoe UI", 9, "bold")
+            ).pack(side="right", padx=8)
 
     def core_row(names):
         row = ctk.CTkFrame(body, fg_color="transparent")
         row.pack(fill="x")
         for name in names:
-            ctk.CTkLabel(row, text=name, fg_color=CARD, text_color=MUTED,
-                         corner_radius=6, font=("Segoe UI", 10),
-                         padx=8, pady=4).pack(side="left", padx=(0, 4), pady=2)
+            ctk.CTkLabel(
+                row,
+                text=name,
+                fg_color=CARD,
+                text_color=MUTED,
+                corner_radius=6,
+                font=("Segoe UI", 10),
+                padx=8,
+                pady=4,
+            ).pack(side="left", padx=(0, 4), pady=2)
 
     def pick_row(entry):
         hot = bool(entry["reason"])
-        row = ctk.CTkFrame(body, fg_color=CARD, corner_radius=8,
-                           border_width=2 if hot else 0, border_color=HOT)
+        row = ctk.CTkFrame(
+            body, fg_color=CARD, corner_radius=8, border_width=2 if hot else 0, border_color=HOT
+        )
         row.pack(fill="x", pady=3)
-        ctk.CTkLabel(row, text=entry["item"], text_color=TEXT, anchor="w",
-                     font=("Segoe UI", 12)).pack(side="left", padx=8, pady=6)
+        ctk.CTkLabel(
+            row, text=entry["item"], text_color=TEXT, anchor="w", font=("Segoe UI", 12)
+        ).pack(side="left", padx=8, pady=6)
         if hot:
-            ctk.CTkLabel(row, text=entry["reason"], text_color=HOT, anchor="e",
-                         font=("Segoe UI", 9)).pack(side="right", padx=8)
+            ctk.CTkLabel(
+                row, text=entry["reason"], text_color=HOT, anchor="e", font=("Segoe UI", 9)
+            ).pack(side="right", padx=8)
 
     shown = {"visible": False, "fingerprint": None}
 
@@ -733,37 +869,55 @@ def build_ui(mon):
                 w.destroy()
 
             if mon.augments:
-                section("AUGMENTE OFERITE (OCR)")
+                section("OFFERED AUGMENTS (OCR)")
                 for a in mon.augments:
                     augment_row(a)
 
             if mon.roster and mon.roster.get("local_champion"):
-                section("CAMPIONUL TAU")
-                ctk.CTkLabel(body, text=mon.roster["local_champion"], text_color=TEXT,
-                             font=("Segoe UI", 14, "bold"), anchor="w").pack(fill="x")
+                section("YOUR CHAMPION")
+                ctk.CTkLabel(
+                    body,
+                    text=mon.roster["local_champion"],
+                    text_color=TEXT,
+                    font=("Segoe UI", 14, "bold"),
+                    anchor="w",
+                ).pack(fill="x")
 
             if mon.roster and mon.roster.get("enemies"):
-                section(f"INAMICI ({len(mon.roster['enemies'])})")
-                ctk.CTkLabel(body, text=", ".join(mon.roster["enemies"]), text_color=MUTED,
-                             font=("Segoe UI", 10), anchor="w", wraplength=260,
-                             justify="left").pack(fill="x")
+                section(f"ENEMIES ({len(mon.roster['enemies'])})")
+                ctk.CTkLabel(
+                    body,
+                    text=", ".join(mon.roster["enemies"]),
+                    text_color=MUTED,
+                    font=("Segoe UI", 10),
+                    anchor="w",
+                    wraplength=260,
+                    justify="left",
+                ).pack(fill="x")
 
             if mon.resolved_build:
                 if mon.resolved_build["core"]:
                     section("CORE")
                     core_row(mon.resolved_build["core"])
                 if mon.resolved_build["picks"]:
-                    section("BUILD FINAL")
+                    section("FINAL BUILD")
                     for entry in mon.resolved_build["picks"]:
                         pick_row(entry)
 
             if mon.status:
-                ctk.CTkLabel(body, text=mon.status, text_color=MUTED, anchor="w",
-                             justify="left", wraplength=260,
-                             font=("Segoe UI", 10)).pack(fill="x", pady=8)
+                ctk.CTkLabel(
+                    body,
+                    text=mon.status,
+                    text_color=MUTED,
+                    anchor="w",
+                    justify="left",
+                    wraplength=260,
+                    font=("Segoe UI", 10),
+                ).pack(fill="x", pady=8)
             elif not mon.roster:
-                ctk.CTkLabel(body, text="se incarca...", text_color=MUTED, anchor="w",
-                             font=("Segoe UI", 11)).pack(fill="x", pady=12)
+                ctk.CTkLabel(
+                    body, text="loading...", text_color=MUTED, anchor="w", font=("Segoe UI", 11)
+                ).pack(fill="x", pady=12)
 
         root.after(2000, refresh)
 
@@ -792,7 +946,7 @@ def selfcheck():
     # Riot pentru astia doi. Confirmat manual, nu ghicit.
     assert slug("Nunu & Willump") == "nunu"
     assert slug("Renata Glasc") == "renata"
-    assert slug("Sett") == "sett"          # override-ul nu trebuie sa strice restul
+    assert slug("Sett") == "sett"  # override-ul nu trebuie sa strice restul
 
     names = augment_tier.flatten_names(global_augments)
     # u.gg claseaza ~206, dar cautam si numele din datele Riot: un augment
@@ -819,30 +973,68 @@ def selfcheck():
     assert augment_tier.lookup_tier("NuExista", global_augments) == "?"
     # rezerva fara OCR: 3 augmente pe fiecare raritate, cel mai bun tier primul
     top = augment_tier.top_by_rarity(global_augments, "Quinn")
-    assert set(top) == {"prismatic", "gold", "silver"} and all(len(v) == 3 for v in top.values()), top
-    assert all(augment_tier.TIER_ORDER.index(v[0]["tier"]) <= augment_tier.TIER_ORDER.index(v[-1]["tier"])
-               for v in top.values()), top
+    assert set(top) == {"prismatic", "gold", "silver"} and all(len(v) == 3 for v in top.values()), (
+        top
+    )
+    assert all(
+        augment_tier.TIER_ORDER.index(v[0]["tier"]) <= augment_tier.TIER_ORDER.index(v[-1]["tier"])
+        for v in top.values()
+    ), top
     # 6 itemi terminati = nu mai ai unde pune ghetele din plan; cu Boots simple inca nu
-    six = ["The Collector", "Kraken Slayer", "Infinity Edge", "Lord Dominik's Regards",
-           "Blade of The Ruined King", "Edge of Night"]
+    six = [
+        "The Collector",
+        "Kraken Slayer",
+        "Infinity Edge",
+        "Lord Dominik's Regards",
+        "Blade of The Ruined King",
+        "Edge of Night",
+    ]
     item_stats_sc = load_json("item-stats.json")
     assert rules_engine.build_full(six, item_stats_sc)
     assert not rules_engine.build_full(six[:5] + ["Boots"], item_stats_sc)
     assert not rules_engine.build_full(six[:5], item_stats_sc)
     # Long Sword din start e componenta din Endless Hunger: nu-l vinzi, il construiesti
-    yi_own = ["Infinity Edge", "The Collector", "Berserker's Greaves", "Lord Dominik's Regards",
-              "Caulfield's Warhammer", "Long Sword", "Poro-Snax"]
+    yi_own = [
+        "Infinity Edge",
+        "The Collector",
+        "Berserker's Greaves",
+        "Lord Dominik's Regards",
+        "Caulfield's Warhammer",
+        "Long Sword",
+        "Poro-Snax",
+    ]
     yi_sell = rules_engine.sell_advice(
         {"starting": ["Long Sword", "Guardian's Blade"], "pool": ["Endless Hunger"]},
-        {"own_items": yi_own}, {}, item_stats_sc, plan=[{"item": "Endless Hunger", "owned": False}])
+        {"own_items": yi_own},
+        {},
+        item_stats_sc,
+        plan=[{"item": "Endless Hunger", "owned": False}],
+    )
     assert not yi_sell or yi_sell["sell"] != "Long Sword", yi_sell
     # grup exclusiv: cu Lord Dominik's (LastWhisper) jocul nu-ti mai vinde Terminus
-    yi_build = {"core": ["Infinity Edge"], "pool": ["Infinity Edge", "Terminus", "Death's Dance"],
-                "fourth": ["Terminus", "Death's Dance"]}
-    yi_roster = {"local_champion": "Master Yi", "allies": [], "enemies": [], "enemy_items": [],
-                 "ally_items": [], "own_items": ["Infinity Edge", "Lord Dominik's Regards"]}
-    yi_plan = rules_engine.resolve_build(yi_build, yi_roster, champion_tags, rules, item_stats_sc,
-                                         [], {}, {"item_groups": load_json("item-groups.json")})
+    yi_build = {
+        "core": ["Infinity Edge"],
+        "pool": ["Infinity Edge", "Terminus", "Death's Dance"],
+        "fourth": ["Terminus", "Death's Dance"],
+    }
+    yi_roster = {
+        "local_champion": "Master Yi",
+        "allies": [],
+        "enemies": [],
+        "enemy_items": [],
+        "ally_items": [],
+        "own_items": ["Infinity Edge", "Lord Dominik's Regards"],
+    }
+    yi_plan = rules_engine.resolve_build(
+        yi_build,
+        yi_roster,
+        champion_tags,
+        rules,
+        item_stats_sc,
+        [],
+        {},
+        {"item_groups": load_json("item-groups.json")},
+    )
     yi_items = [e["item"] for e in yi_plan["core"] + yi_plan["picks"]]
     assert "Terminus" not in yi_items and "Death's Dance" in yi_items, yi_items
 
@@ -863,45 +1055,60 @@ def selfcheck():
     # iar itemul "Liandry's Torment" semana fuzzy cu augmentul "Tormentor".
     # Cum oferta se aduna si e taiata la 3, gunoiul asta impingea afara
     # augmentele adevarate.
-    magazin = ("Stormsurge Zhonya's Hourglass 2800 Burst Damage Good Against: "
-               "3250 Invulnerability SELL UNDO PURCHASE COMPONENTS "
-               "Liandry's Torment 3000 60 Ability Power 300 Health Torment "
-               "Damaging Abilities burn enemies")
-    assert ocr_augments.match_augments([magazin], names) == [], \
-        ocr_augments.match_augments([magazin], names)
+    magazin = (
+        "Stormsurge Zhonya's Hourglass 2800 Burst Damage Good Against: "
+        "3250 Invulnerability SELL UNDO PURCHASE COMPONENTS "
+        "Liandry's Torment 3000 60 Ability Power 300 Health Torment "
+        "Damaging Abilities burn enemies"
+    )
+    assert ocr_augments.match_augments([magazin], names) == [], ocr_augments.match_augments(
+        [magazin], names
+    )
 
     scoreboard = "28 66 18 7/5/7 5/7/7 e 1 34 x' 40 Grimoire CyberKird 13 69 19"
     assert ocr_augments.match_augments([scoreboard], names) == []
 
     # ...dar o oferta adevarata trebuie sa treaca intreaga, inclusiv cand OCR
     # citeste "0k" cu cifra zero in loc de "Ok"
-    oferta = ("Phenomenal Evil Damage Permanently gain 1 Ability Power when you "
-              "damage enemy champions with Abilities. 0k Boomerang Damage "
-              "Autocast throw a boomerang at a nearby enemy every 1 Os.")
-    assert ocr_augments.match_augments([oferta], names) == \
-        ["Phenomenal Evil", "Ok Boomerang"], ocr_augments.match_augments([oferta], names)
+    oferta = (
+        "Phenomenal Evil Damage Permanently gain 1 Ability Power when you "
+        "damage enemy champions with Abilities. 0k Boomerang Damage "
+        "Autocast throw a boomerang at a nearby enemy every 1 Os."
+    )
+    assert ocr_augments.match_augments([oferta], names) == ["Phenomenal Evil", "Ok Boomerang"], (
+        ocr_augments.match_augments([oferta], names)
+    )
 
     # citirea pe card: un card = un augment, chiar daca descrierea pomeneste altul
     card = "Phenomenal Evil Damage Gain Ability Power. Works well with Ok Boomerang."
     assert ocr_augments.match_card(card, names) == "Phenomenal Evil"
     assert ocr_augments.match_card("0k Boomerang Damage Autocast throw", names) == "Ok Boomerang"
-    assert ocr_augments.match_card("GoIiath Tank gain size", names) == "Goliath"   # I mare
+    assert ocr_augments.match_card("GoIiath Tank gain size", names) == "Goliath"  # I mare
     assert ocr_augments.match_card("", names) is None
-    assert ocr_augments.match_card("3250 Invulnerability SELL", names) is None   # nu "Vulnerability"
+    assert ocr_augments.match_card("3250 Invulnerability SELL", names) is None  # nu "Vulnerability"
     # titlul cardului: rand scurt si centrat. Un nume pomenit intr-o propozitie
     # din shop / tooltip de item (hover) nu e o oferta.
     assert ocr_augments.match_title([("Goliath", 40, 10, 160, 30)], names, 200)[0] == "Goliath"
-    assert ocr_augments.match_title([("Gain Goliath and bonus health per level", 0, 10, 200, 30)],
-                                    names, 200)[0] is None
-    assert ocr_augments.match_title([("Goliath", 0, 10, 60, 30)], names, 200)[0] is None   # nu e centrat
-    assert ocr_augments.match_title([("Draw Your", 50, 10, 150, 30), ("Sword", 70, 32, 130, 50)],
-                                    names, 200)[0] == "Draw Your Sword"           # nume rupt pe 2 randuri
+    assert (
+        ocr_augments.match_title(
+            [("Gain Goliath and bonus health per level", 0, 10, 200, 30)], names, 200
+        )[0]
+        is None
+    )
+    assert (
+        ocr_augments.match_title([("Goliath", 0, 10, 60, 30)], names, 200)[0] is None
+    )  # nu e centrat
+    assert (
+        ocr_augments.match_title(
+            [("Draw Your", 50, 10, 150, 30), ("Sword", 70, 32, 130, 50)], names, 200
+        )[0]
+        == "Draw Your Sword"
+    )  # nume rupt pe 2 randuri
     assert not ocr_augments.aligned(["Goliath", "Eureka"], [(50, 20), (150, 300)], 400)
     assert ocr_augments.match_card("28 66 18 7/5/7 Grimoire", names) is None
 
     # normalizare nume interne -> afisate
-    raw = {"allies": ["Sett"], "enemies": ["MonkeyKing", "FiddleSticks"],
-           "local_champion": "Sett"}
+    raw = {"allies": ["Sett"], "enemies": ["MonkeyKing", "FiddleSticks"], "local_champion": "Sett"}
     fixed = normalize_roster(raw, champ_id_map)
     assert fixed["enemies"] == ["Wukong", "FiddleSticks"], fixed
     # FiddleSticks nu are corespondent exact (Data Dragon foloseste
@@ -925,29 +1132,39 @@ def selfcheck():
             assert h["item"] in p, f"item din afara pool-ului: {h['item']}"
 
     # campioni necunoscuti in tags nu arunca si nu se numara
-    assert rules_engine.evaluate_rules(
-        {"allies": [], "enemies": ["NuExista"]}, champion_tags, rules, pool) == []
+    assert (
+        rules_engine.evaluate_rules(
+            {"allies": [], "enemies": ["NuExista"]}, champion_tags, rules, pool
+        )
+        == []
+    )
 
     # regulile pe itemii chiar cumparati, si golul de echipa la anti-heal:
     # daca un coechipier l-a luat deja, nu mai insistam sa-l iei si tu
     item_stats = load_json("item-stats.json")
     heal_pool = ["Mortal Reminder", "Boots"]
-    vindeca = {"allies": [], "enemies": [], "enemy_items": ["Bloodthirster",
-                                                            "Vampiric Scepter"]}
+    vindeca = {"allies": [], "enemies": [], "enemy_items": ["Bloodthirster", "Vampiric Scepter"]}
 
-    gol = rules_engine.evaluate_rules(dict(vindeca, ally_items=["Infinity Edge"]),
-                                      champion_tags, rules, heal_pool, item_stats)
+    gol = rules_engine.evaluate_rules(
+        dict(vindeca, ally_items=["Infinity Edge"]), champion_tags, rules, heal_pool, item_stats
+    )
     assert any(h["rule"] == "enemy_heals_nobody_counters" for h in gol), gol
 
-    acoperit = rules_engine.evaluate_rules(dict(vindeca, ally_items=["Mortal Reminder"]),
-                                           champion_tags, rules, heal_pool, item_stats)
+    acoperit = rules_engine.evaluate_rules(
+        dict(vindeca, ally_items=["Mortal Reminder"]), champion_tags, rules, heal_pool, item_stats
+    )
     assert not any(h["rule"] == "enemy_heals_nobody_counters" for h in acoperit), acoperit
 
     # itemii de armura ai inamicilor cer penetrare, nu ghicim din campioni
-    armura = {"allies": [], "enemies": [], "ally_items": [],
-              "enemy_items": ["Thornmail", "Chain Vest"]}
-    pen = rules_engine.evaluate_rules(armura, champion_tags, rules,
-                                      ["Lord Dominik's Regards"], item_stats)
+    armura = {
+        "allies": [],
+        "enemies": [],
+        "ally_items": [],
+        "enemy_items": ["Thornmail", "Chain Vest"],
+    }
+    pen = rules_engine.evaluate_rules(
+        armura, champion_tags, rules, ["Lord Dominik's Regards"], item_stats
+    )
     assert [h["rule"] for h in pen] == ["enemy_bought_armor"], pen
 
     # resolve_build: exact un item per slot situational, niciodata duplicat
@@ -958,16 +1175,29 @@ def selfcheck():
         "fourth": ["Warmog's Armor", "Sterak's Gage"],
         "fifth": ["Sterak's Gage", "Warmog's Armor", "Force of Nature"],
         "sixth": ["Sterak's Gage", "Spirit Visage", "Force of Nature"],
-        "pool": ["Heartsteel", "Mercury's Treads", "Overlord's Bloodmail",
-                 "Warmog's Armor", "Sterak's Gage", "Force of Nature",
-                 "Spirit Visage"],
+        "pool": [
+            "Heartsteel",
+            "Mercury's Treads",
+            "Overlord's Bloodmail",
+            "Warmog's Armor",
+            "Sterak's Gage",
+            "Force of Nature",
+            "Spirit Visage",
+        ],
     }
     resolved = rules_engine.resolve_build(
-        build, {"allies": [], "enemies": ["Ahri", "Lux", "Veigar"]}, champion_tags, rules)
+        build, {"allies": [], "enemies": ["Ahri", "Lux", "Veigar"]}, champion_tags, rules
+    )
     assert resolved["starting"] == ["Doran's Shield", "Health Potion"]
     # startul dispare pe masura ce il cumperi, si cu totul dupa primul item mare
-    assert rules_engine.starting_left(["Doran's Shield", "Health Potion"],
-                                      ["Doran's Shield"], {"Health Potion": {"consumable": True}}) == []
+    assert (
+        rules_engine.starting_left(
+            ["Doran's Shield", "Health Potion"],
+            ["Doran's Shield"],
+            {"Health Potion": {"consumable": True}},
+        )
+        == []
+    )
     assert rules_engine.starting_left(["Doran's Shield", "Boots"], ["Boots"]) == ["Doran's Shield"]
     assert rules_engine.starting_left(["Doran's Shield"], ["Long Sword"]) == []
     picks = [p["item"] for p in resolved["picks"]]
@@ -976,9 +1206,11 @@ def selfcheck():
     # Jocul scrie "Heartsteel" la fel, dar altele difera prin majuscule
     # ("Blade of The Ruined King"), deci potrivirea e case-insensitive.
     have = rules_engine.resolve_build(
-        build, {"allies": [], "enemies": [],
-                "own_items": ["heartsteel", "MERCURY'S TREADS"]},
-        champion_tags, rules)
+        build,
+        {"allies": [], "enemies": [], "own_items": ["heartsteel", "MERCURY'S TREADS"]},
+        champion_tags,
+        rules,
+    )
     core_owned = [(c["item"], c["owned"]) for c in have["core"]]
     assert core_owned[0] == ("Heartsteel", True), core_owned
     assert core_owned[1] == ("Mercury's Treads", True), core_owned
@@ -988,24 +1220,43 @@ def selfcheck():
     assert not any(p["next"] for p in have["picks"])
 
     # fara niciun item, primul din core e urmatorul
-    gol = rules_engine.resolve_build(build, {"allies": [], "enemies": [],
-                                             "own_items": []}, champion_tags, rules)
+    gol = rules_engine.resolve_build(
+        build, {"allies": [], "enemies": [], "own_items": []}, champion_tags, rules
+    )
     assert gol["core"][0]["next"] is True and not gol["core"][0]["owned"]
 
     # sfatul de vandut cizmele: doar la build plin, si niciodata cand chiar
     # cizmele alea contreaza compozitia inamica
-    six = ["Heartsteel", "Mercury's Treads", "Overlord's Bloodmail",
-           "Warmog's Armor", "Sterak's Gage", "Spirit Visage"]
-    sett = {"core": ["Heartsteel", "Mercury's Treads", "Overlord's Bloodmail"],
-            "fourth": ["Warmog's Armor"], "fifth": ["Sterak's Gage"],
-            "sixth": ["Spirit Visage"],
-            "pool": six + ["Thornmail", "Force of Nature"]}
+    six = [
+        "Heartsteel",
+        "Mercury's Treads",
+        "Overlord's Bloodmail",
+        "Warmog's Armor",
+        "Sterak's Gage",
+        "Spirit Visage",
+    ]
+    sett = {
+        "core": ["Heartsteel", "Mercury's Treads", "Overlord's Bloodmail"],
+        "fourth": ["Warmog's Armor"],
+        "fifth": ["Sterak's Gage"],
+        "sixth": ["Spirit Visage"],
+        "pool": six + ["Thornmail", "Force of Nature"],
+    }
 
     def boots_for(enemies, own):
         return rules_engine.resolve_build(
-            sett, {"allies": [], "enemies": enemies, "enemy_items": [],
-                   "ally_items": [], "own_items": own},
-            champion_tags, rules, item_stats)["sell"]
+            sett,
+            {
+                "allies": [],
+                "enemies": enemies,
+                "enemy_items": [],
+                "ally_items": [],
+                "own_items": own,
+            },
+            champion_tags,
+            rules,
+            item_stats,
+        )["sell"]
 
     # 3+ inamici AP -> Mercury's Treads isi face treaba, nu o vindem
     assert boots_for(["Ahri", "Lux", "Veigar"], six) is None
@@ -1020,33 +1271,55 @@ def selfcheck():
 
     # evolutia: Manamune devine Muramana si dispare din inventar, dar build-ul
     # cere in continuare Manamune -- trebuie sa conteze ca detinut
-    mana = {"core": ["Manamune", "Heartsteel"], "fourth": ["Warmog's Armor"],
-            "pool": ["Manamune", "Heartsteel", "Warmog's Armor"]}
+    mana = {
+        "core": ["Manamune", "Heartsteel"],
+        "fourth": ["Warmog's Armor"],
+        "pool": ["Manamune", "Heartsteel", "Warmog's Armor"],
+    }
     evo = rules_engine.resolve_build(
-        mana, {"allies": [], "enemies": [], "own_items": ["Muramana"]},
-        champion_tags, rules, item_stats)
+        mana,
+        {"allies": [], "enemies": [], "own_items": ["Muramana"]},
+        champion_tags,
+        rules,
+        item_stats,
+    )
     assert evo["core"][0] == {"item": "Manamune", "owned": True, "next": False}, evo["core"]
     assert evo["core"][1]["next"] is True, evo["core"]
 
     # disponibilitatea: Runaan's Hurricane cere ranged, iar Draw Your Sword te
     # face melee -- dupa el itemul nu se mai poate cumpara si nu mai e recomandat
-    yun = {"core": ["Runaan's Hurricane", "Infinity Edge", "Heartsteel"],
-           "fourth": ["Bloodthirster", "Thornmail"], "fifth": ["Thornmail"], "sixth": ["Warmog's Armor"],
-           "pool": ["Runaan's Hurricane", "Infinity Edge", "Heartsteel", "Bloodthirster",
-                    "Thornmail", "Warmog's Armor", "Kraken Slayer"]}
-    ctx = {"ranges": {"Yunara": 575}, "effects": {"Draw Your Sword": {"range": "melee"}},
-           "item_names": {"7": "Bloodthirster"},
-           "aug_table": {"Draw Your Sword": [[7, 612, 50]]}}
+    yun = {
+        "core": ["Runaan's Hurricane", "Infinity Edge", "Heartsteel"],
+        "fourth": ["Bloodthirster", "Thornmail"],
+        "fifth": ["Thornmail"],
+        "sixth": ["Warmog's Armor"],
+        "pool": [
+            "Runaan's Hurricane",
+            "Infinity Edge",
+            "Heartsteel",
+            "Bloodthirster",
+            "Thornmail",
+            "Warmog's Armor",
+            "Kraken Slayer",
+        ],
+    }
+    ctx = {
+        "ranges": {"Yunara": 575},
+        "effects": {"Draw Your Sword": {"range": "melee"}},
+        "item_names": {"7": "Bloodthirster"},
+        "aug_table": {"Draw Your Sword": [[7, 612, 50]]},
+    }
     roster_y = {"allies": [], "enemies": [], "own_items": [], "local_champion": "Yunara"}
     stats_y = dict(item_stats, **{"Runaan's Hurricane": {"needs": "ranged"}})
     before = rules_engine.resolve_build(yun, roster_y, champion_tags, rules, stats_y, [], {}, ctx)
     assert before["core"][0]["item"] == "Runaan's Hurricane" and before["range"] == "ranged"
-    after = rules_engine.resolve_build(yun, roster_y, champion_tags, rules, stats_y,
-                                       ["Draw Your Sword"], {}, ctx)
+    after = rules_engine.resolve_build(
+        yun, roster_y, champion_tags, rules, stats_y, ["Draw Your Sword"], {}, ctx
+    )
     shown = [e["item"] for e in after["core"] + after["picks"]]
     assert "Runaan's Hurricane" not in shown, shown
     assert after["unavailable"] == ["Runaan's Hurricane"] and after["range"] == "melee"
-    assert len(shown) == 6, shown                       # core-ul scazut a fost completat
+    assert len(shown) == 6, shown  # core-ul scazut a fost completat
     # raza reala din joc: melee chiar daca n-am prins alegerea augmentului
     live = dict(ctx, live_range=200.0)
     blind = rules_engine.resolve_build(yun, roster_y, champion_tags, rules, stats_y, [], {}, live)
@@ -1055,7 +1328,7 @@ def selfcheck():
     assert rules_engine.implied_augment("Yunara", ["Draw Your Sword"], live) is None
     assert rules_engine.implied_augment("Yunara", [], dict(ctx, live_range=575.0)) is None
     pick = next(e for e in after["picks"] if e["item"] == "Bloodthirster")
-    assert pick["reason"] and "61% WR" in pick["reason"], pick   # cel mai bun CU augmentul
+    assert pick["reason"] and "61% WR" in pick["reason"], pick  # cel mai bun CU augmentul
 
     # ce recomanda nu are voie sa fie componenta sau alte cizme
     adv = boots_for(["Jinx", "Vayne", "Ashe"], six)
@@ -1065,12 +1338,19 @@ def selfcheck():
     # ...si NICIODATA ceva ce ai deja, oricum ar fi scris numele. Jocul si
     # u.gg difera prin majuscule si apostrof, iar fara normalizare itemul
     # detinut parea nou si era recomandat inca o data (bug raportat in joc).
-    assert rules_engine.item_key("Blade of The Ruined King") == \
-        rules_engine.item_key("Blade of the Ruined King")
+    assert rules_engine.item_key("Blade of The Ruined King") == rules_engine.item_key(
+        "Blade of the Ruined King"
+    )
     assert rules_engine.item_key("Luden's Echo") == rules_engine.item_key("Luden’s Echo")
 
-    variante = ["Heartsteel", "MERCURY'S TREADS", "Overlord's Bloodmail",
-                "Warmog's Armor", "Sterak's Gage", "THORNMAIL"]
+    variante = [
+        "Heartsteel",
+        "MERCURY'S TREADS",
+        "Overlord's Bloodmail",
+        "Warmog's Armor",
+        "Sterak's Gage",
+        "THORNMAIL",
+    ]
     adv2 = boots_for(["Jinx", "Vayne", "Ashe"], variante)
     if adv2:
         detinute = {rules_engine.item_key(n) for n in variante}
@@ -1078,72 +1358,115 @@ def selfcheck():
 
     # --- ce fac augmentele cu itemii (augment-effects.json) ---------------
     effects = load_json("augment-effects.json")
-    assert effects["Icathia's Fall"] == {"needs": ["Sunfire Aegis", "Hollow Radiance"],
-                                         "combine": "Void Immolation",
-                                         "gives": ["Bami's Cinder"]}, effects["Icathia's Fall"]
+    assert effects["Icathia's Fall"] == {
+        "needs": ["Sunfire Aegis", "Hollow Radiance"],
+        "combine": "Void Immolation",
+        "gives": ["Bami's Cinder"],
+    }, effects["Icathia's Fall"]
     assert effects["Time Warp: Heartsteel"] == {"later": ["Heartsteel"]}
     assert effects["Upgrade Immolate"]["any"] == ["Hollow Radiance", "Sunfire Aegis"]
     assert "gives" not in effects.get("Hat Trick", {}), "Cappa Juice doar se ieftineste"
     assert effects["Dual Wield"].get("likes") == "onhit"
-    tank = {"core": ["Heartsteel", "Thornmail"], "fourth": ["Warmog's Armor"],
-            "pool": ["Heartsteel", "Thornmail", "Warmog's Armor", "Sunfire Aegis", "Hollow Radiance"]}
+    tank = {
+        "core": ["Heartsteel", "Thornmail"],
+        "fourth": ["Warmog's Armor"],
+        "pool": ["Heartsteel", "Thornmail", "Warmog's Armor", "Sunfire Aegis", "Hollow Radiance"],
+    }
     r0 = {"allies": [], "enemies": [], "enemy_items": [], "ally_items": [], "own_items": []}
     ctx2 = {"effects": effects}
-    icat = rules_engine.resolve_build(tank, r0, champion_tags, rules, item_stats,
-                                      ["Icathia's Fall"], {}, ctx2)
-    assert [e["item"] for e in icat["core"][:2]] == ["Sunfire Aegis", "Hollow Radiance"], icat["core"]
+    icat = rules_engine.resolve_build(
+        tank, r0, champion_tags, rules, item_stats, ["Icathia's Fall"], {}, ctx2
+    )
+    assert [e["item"] for e in icat["core"][:2]] == ["Sunfire Aegis", "Hollow Radiance"], icat[
+        "core"
+    ]
     # dupa unire, sursele nu se mai cer
-    gata = rules_engine.resolve_build(tank, dict(r0, own_items=["Void Immolation"]), champion_tags,
-                                      rules, item_stats, ["Icathia's Fall"], {}, ctx2)
+    gata = rules_engine.resolve_build(
+        tank,
+        dict(r0, own_items=["Void Immolation"]),
+        champion_tags,
+        rules,
+        item_stats,
+        ["Icathia's Fall"],
+        {},
+        ctx2,
+    )
     assert "Sunfire Aegis" not in [e["item"] for e in gata["core"] if not e["owned"]], gata["core"]
     # augment on-hit: dintre optiunile slotului, itemul on-hit
-    adc = {"core": ["Infinity Edge"], "fourth": ["Bloodthirster", "Blade of The Ruined King"],
-           "pool": ["Infinity Edge", "Bloodthirster", "Blade of The Ruined King"]}
-    oh = rules_engine.resolve_build(adc, r0, champion_tags, rules, item_stats, ["Dual Wield"], {}, ctx2)
+    adc = {
+        "core": ["Infinity Edge"],
+        "fourth": ["Bloodthirster", "Blade of The Ruined King"],
+        "pool": ["Infinity Edge", "Bloodthirster", "Blade of The Ruined King"],
+    }
+    oh = rules_engine.resolve_build(
+        adc, r0, champion_tags, rules, item_stats, ["Dual Wield"], {}, ctx2
+    )
     assert oh["picks"][0]["item"] == "Blade of The Ruined King", oh["picks"]
     # itemul nefolosibil se vinde oricand, nu doar la build plin
     dead = rules_engine.resolve_build(
-        yun, dict(roster_y, own_items=["Runaan's Hurricane"]), champion_tags, rules, stats_y,
-        ["Draw Your Sword"], {}, ctx)
+        yun,
+        dict(roster_y, own_items=["Runaan's Hurricane"]),
+        champion_tags,
+        rules,
+        stats_y,
+        ["Draw Your Sword"],
+        {},
+        ctx,
+    )
     assert dead["sell"] and dead["sell"]["sell"] == "Runaan's Hurricane", dead["sell"]
     # sloturi pline cu Doran's -> vinde Doran's
     doran = six[:5] + ["Doran's Shield"]
     assert boots_for(["Ahri", "Lux", "Veigar"], doran)["sell"] == "Doran's Shield"
-    assert boots_for(["Ahri", "Lux", "Veigar"], six[:5] + ["Guardian's Horn"])["sell"] == "Guardian's Horn"
-    assert boots_for(["Ahri", "Lux", "Veigar"], six[:4] + ["Guardian's Horn"]) is None   # mai e un slot
+    assert (
+        boots_for(["Ahri", "Lux", "Veigar"], six[:5] + ["Guardian's Horn"])["sell"]
+        == "Guardian's Horn"
+    )
+    assert (
+        boots_for(["Ahri", "Lux", "Veigar"], six[:4] + ["Guardian's Horn"]) is None
+    )  # mai e un slot
 
     # --- augment care cere un item anume --------------------------------
     aug_items = load_json("augment-items.json")
-    gol_roster = {"allies": [], "enemies": [], "enemy_items": [],
-                  "ally_items": [], "own_items": []}
+    gol_roster = {"allies": [], "enemies": [], "enemy_items": [], "ally_items": [], "own_items": []}
 
-    fara = rules_engine.resolve_build(build, gol_roster, champion_tags, rules,
-                                      item_stats)
-    cu = rules_engine.resolve_build(build, gol_roster, champion_tags, rules,
-                                    item_stats, ["Upgrade Zhonya's"], aug_items)
+    fara = rules_engine.resolve_build(build, gol_roster, champion_tags, rules, item_stats)
+    cu = rules_engine.resolve_build(
+        build, gol_roster, champion_tags, rules, item_stats, ["Upgrade Zhonya's"], aug_items
+    )
     assert cu["core"][0]["item"] == "Zhonya's Hourglass", cu["core"][:2]
     assert cu["core"][0]["next"], "itemul cerut de augment trebuie sa fie urmatorul"
-    assert fara["core"][0]["item"] != "Zhonya's Hourglass", \
-        "fara augment n-avea ce cauta acolo"
+    assert fara["core"][0]["item"] != "Zhonya's Hourglass", "fara augment n-avea ce cauta acolo"
 
     # nu apare de doua ori daca era oricum in build
     cu_dublu = rules_engine.resolve_build(
-        build, gol_roster, champion_tags, rules, item_stats,
-        ["Upgrade " + build["core"][0]], {"Upgrade " + build["core"][0]: build["core"][0]})
+        build,
+        gol_roster,
+        champion_tags,
+        rules,
+        item_stats,
+        ["Upgrade " + build["core"][0]],
+        {"Upgrade " + build["core"][0]: build["core"][0]},
+    )
     nume = [e["item"] for e in cu_dublu["core"] + cu_dublu["picks"]]
     assert nume.count(build["core"][0]) == 1, nume
 
     # un item pe care il ai deja nu se mai cere
     detin = rules_engine.resolve_build(
-        build, dict(gol_roster, own_items=["Zhonya's Hourglass"]),
-        champion_tags, rules, item_stats, ["Upgrade Zhonya's"], aug_items)
+        build,
+        dict(gol_roster, own_items=["Zhonya's Hourglass"]),
+        champion_tags,
+        rules,
+        item_stats,
+        ["Upgrade Zhonya's"],
+        aug_items,
+    )
     assert detin["core"][0]["item"] != "Zhonya's Hourglass", detin["core"][:2]
 
     # augment necunoscut in mapare -> build neschimbat
-    neutru = rules_engine.resolve_build(build, gol_roster, champion_tags, rules,
-                                        item_stats, ["Ok Boomerang"], aug_items)
-    assert [e["item"] for e in neutru["core"]] == \
-        [e["item"] for e in fara["core"]], neutru["core"]
+    neutru = rules_engine.resolve_build(
+        build, gol_roster, champion_tags, rules, item_stats, ["Ok Boomerang"], aug_items
+    )
+    assert [e["item"] for e in neutru["core"]] == [e["item"] for e in fara["core"]], neutru["core"]
 
     # --- Stat Anvil ------------------------------------------------------
     import stat_anvil
@@ -1169,11 +1492,9 @@ def selfcheck():
 
     # armura urca fata de MR cand inamicii sunt AD, si invers
     aparare = ["Armor Shard", "Magic Resist Shard"]
-    ad_comp = stat_anvil.recommend(aparare, champion_tags, "Sett",
-                                   ["Jinx", "Vayne", "Ashe"])
+    ad_comp = stat_anvil.recommend(aparare, champion_tags, "Sett", ["Jinx", "Vayne", "Ashe"])
     assert next(e for e in ad_comp if e["is_best"])["name"] == "Armor Shard", ad_comp
-    ap_comp = stat_anvil.recommend(aparare, champion_tags, "Sett",
-                                   ["Ahri", "Lux", "Veigar"])
+    ap_comp = stat_anvil.recommend(aparare, champion_tags, "Sett", ["Ahri", "Lux", "Veigar"])
     assert next(e for e in ap_comp if e["is_best"])["name"] == "Magic Resist Shard", ap_comp
 
     # campion necunoscut -> tot da o recomandare, nu crapa
@@ -1195,12 +1516,12 @@ def selfcheck():
         mon.roster = {"local_champion": None}
         mon._ocr_cycle()
         assert len(mon.augments) == 2, mon.augments
-        time.sleep(0.15)   # marja larga: sleep-ul pe Windows sare ~15ms
+        time.sleep(0.15)  # marja larga: sleep-ul pe Windows sare ~15ms
         mon._ocr_cycle()
         assert mon.augments == [], "oferta veche n-a fost ascunsa"
         mon._ocr_cycle()
         assert mon.augments == [], "oferta expirata a reaparut"
-        oferta[:] = ["Dual Wield"]            # oferta noua: trebuie sa reapara
+        oferta[:] = ["Dual Wield"]  # oferta noua: trebuie sa reapara
         mon._ocr_cycle()
         assert [a["name"] for a in mon.augments] == ["Dual Wield"], mon.augments
 
@@ -1210,8 +1531,7 @@ def selfcheck():
         OFFER_TTL = real_ttl
         mon2 = Monitor(champ_id_map, champion_tags, rules, global_augments)
         mon2.roster = {"local_champion": None}
-        citiri = [["Goliath", "Multishot"], ["Goliath", "Overloaded"],
-                  ["Multishot"]]
+        citiri = [["Goliath", "Multishot"], ["Goliath", "Overloaded"], ["Multishot"]]
         it = iter(citiri)
         ocr_augments.detect_offered_augments = lambda names, **k: (next(it, []), "t")
         for _ in citiri:
@@ -1230,14 +1550,17 @@ def selfcheck():
         # pe cele noi la MAX_OFFER (bug raportat in joc).
         mon3 = Monitor(champ_id_map, champion_tags, rules, global_augments)
         mon3.roster = {"local_champion": None}
-        secventa = [["Goliath", "Multishot"], ["Goliath", "Overloaded"],
-                    ["Dual Wield", "Tap Dancer"]]
+        secventa = [
+            ["Goliath", "Multishot"],
+            ["Goliath", "Overloaded"],
+            ["Dual Wield", "Tap Dancer"],
+        ]
         it3 = iter(secventa)
         ocr_augments.detect_offered_augments = lambda names, **k: (next(it3, []), "t")
         mon3._ocr_cycle()
         mon3._ocr_cycle()
-        assert len(mon3.augments) == 3, mon3.augments      # s-au adunat
-        mon3._ocr_cycle()                                   # reroll
+        assert len(mon3.augments) == 3, mon3.augments  # s-au adunat
+        mon3._ocr_cycle()  # reroll
         dupa = [a["name"] for a in mon3.augments]
         assert dupa == ["Dual Wield", "Tap Dancer"], dupa
         assert "Goliath" not in dupa, "augmentele vechi au ramas dupa reroll"
@@ -1248,18 +1571,20 @@ def selfcheck():
         mon4 = Monitor(champ_id_map, champion_tags, rules, global_augments, None, aug_items)
         mon4.roster = {"local_champion": None}
         ocr_augments.detect_offered_augments = lambda names, **k: (
-            ["Upgrade Ravenous Hydra", "Goliath", "Upgrade Immolate"], "t")
+            ["Upgrade Ravenous Hydra", "Goliath", "Upgrade Immolate"],
+            "t",
+        )
         mon4._ocr_cycle()
         mon4._note_activity(9, 1000)
-        mon4._note_activity(9, 1100)          # +100: venit normal, nimic
+        mon4._note_activity(9, 1100)  # +100: venit normal, nimic
         assert mon4.taken_augments == [], mon4.taken_augments
-        mon4._note_activity(9, 1360)          # +260: Immolate (250), nu Hydra (500)
+        mon4._note_activity(9, 1360)  # +260: Immolate (250), nu Hydra (500)
         assert mon4.taken_augments == ["Upgrade Immolate"], mon4.taken_augments
         mon4.taken_augments = []
-        mon4._ocr_cycle()                     # aceeasi oferta, din nou pe ecran
-        mon4._note_activity(9, 1870)          # +510: Hydra, cea mai mare care incape
+        mon4._ocr_cycle()  # aceeasi oferta, din nou pe ecran
+        mon4._note_activity(9, 1870)  # +510: Hydra, cea mai mare care incape
         assert mon4.taken_augments == ["Upgrade Ravenous Hydra"], mon4.taken_augments
-        mon4._note_activity(9, 2400)          # alt salt, oferta deja consumata
+        mon4._note_activity(9, 2400)  # alt salt, oferta deja consumata
         assert mon4.taken_augments == ["Upgrade Ravenous Hydra"], mon4.taken_augments
 
         # questurile nu dau aur, dar unele dau un item pe loc: Bami's Cinder
@@ -1267,16 +1592,18 @@ def selfcheck():
         mon5 = Monitor(champ_id_map, champion_tags, rules, global_augments, None, aug_items)
         mon5.roster = {"local_champion": None}
         ocr_augments.detect_offered_augments = lambda names, **k: (
-            ["Icathia's Fall", "Goliath", "Dual Wield"], "t")
+            ["Icathia's Fall", "Goliath", "Dual Wield"],
+            "t",
+        )
         mon5._note_activity(7, 1500)
         mon5._item_pick(["Long Sword"], time.monotonic())
         mon5._ocr_cycle()
-        mon5._note_activity(7, 400)           # a cumparat Bami's Cinder
+        mon5._note_activity(7, 400)  # a cumparat Bami's Cinder
         mon5._item_pick(["Long Sword", "Bami's Cinder"], time.monotonic())
         assert mon5.taken_augments == [], mon5.taken_augments
         mon5._note_activity(7, 420)
-        mon5._item_pick(["Long Sword"], time.monotonic())        # l-a vandut
-        mon5._note_activity(7, 440)           # aur neschimbat, item nou
+        mon5._item_pick(["Long Sword"], time.monotonic())  # l-a vandut
+        mon5._note_activity(7, 440)  # aur neschimbat, item nou
         mon5._item_pick(["Long Sword", "Bami's Cinder"], time.monotonic())
         assert mon5.taken_augments == ["Icathia's Fall"], mon5.taken_augments
     finally:
@@ -1284,28 +1611,48 @@ def selfcheck():
         ocr_augments.detect_offered_augments = real_detect
     assert len(picks) == 3, picks
     assert len(set(picks)) == 3, f"item duplicat intre sloturi: {picks}"
-    assert not (set(picks) & {c["item"] for c in resolved["core"]}), \
+    assert not (set(picks) & {c["item"] for c in resolved["core"]}), (
         "item din core repetat in picks"
+    )
     # Force of Nature (MR) trebuie sa apara, e in pool si se potriveste regulii
     assert "Force of Nature" in picks, picks
 
     # Ultra Hydra: cele trei Hydra sunt din acelasi grup exclusiv, dar questul le cere pe toate;
     # dupa prima, celelalte doua trebuie sa ramana de cumparat (nu sa dispara din build)
-    hydra_extra = {"effects": load_json("augment-effects.json"), "item_groups": load_json("item-groups.json")}
+    hydra_extra = {
+        "effects": load_json("augment-effects.json"),
+        "item_groups": load_json("item-groups.json"),
+    }
     hydra_build = {"core": ["Berserker's Greaves"], "pool": [], "starting": []}
-    for own, nxt in (([], "Titanic Hydra"), (["Titanic Hydra"], "Ravenous Hydra"),
-                     (["Titanic Hydra", "Ravenous Hydra"], "Profane Hydra")):
+    for own, nxt in (
+        ([], "Titanic Hydra"),
+        (["Titanic Hydra"], "Ravenous Hydra"),
+        (["Titanic Hydra", "Ravenous Hydra"], "Profane Hydra"),
+    ):
         got = rules_engine.resolve_build(
-            hydra_build, {"local_champion": "Garen", "enemies": [], "own_items": own}, champion_tags,
-            rules, load_json("item-stats.json"),
-            ["Ultra Hydra"], load_json("augment-items.json"), hydra_extra)
+            hydra_build,
+            {"local_champion": "Garen", "enemies": [], "own_items": own},
+            champion_tags,
+            rules,
+            load_json("item-stats.json"),
+            ["Ultra Hydra"],
+            load_json("augment-items.json"),
+            hydra_extra,
+        )
         assert next(e["item"] for e in got["core"] if e["next"]) == nxt, (own, got["core"])
 
     # quest fara item pe loc: dedus din inventar (doua Hydra diferite) sau din oferta + itemul din afara build-ului
     def quest_mon():
-        m = Monitor({}, champion_tags, rules, load_json("augments-global.json"), load_json("item-stats.json"))
+        m = Monitor(
+            {},
+            champion_tags,
+            rules,
+            load_json("augments-global.json"),
+            load_json("item-stats.json"),
+        )
         m.build = {"core": ["Berserker's Greaves"], "pool": ["Infinity Edge"]}
         return m
+
     m = quest_mon()
     m._quest_pick(["Titanic Hydra"])
     assert not m.taken_augments, "un singur Hydra, fara oferta: cumparatura normala"
@@ -1316,6 +1663,7 @@ def selfcheck():
     m._quest_pick(["Titanic Hydra"])
     assert m.taken_augments == ["Ultra Hydra"]
     m = quest_mon()
+    assert m.build is not None
     m.build["pool"].append("Titanic Hydra")
     m._seen_offers.add("Ultra Hydra")
     m._quest_pick(["Titanic Hydra"])
@@ -1342,36 +1690,74 @@ def selfcheck():
 
     # alegerea = cardul de sub cursor cand oferta dispare
     m = quest_mon()
-    m._offer_pool, m._last_slots, m._cursor = {"Lich Brain": 1, "Totentanz": 2, "Group Hug": 3},         {"Lich Brain": 0, "Totentanz": 1, "Group Hug": 2}, (1, time.monotonic())
+    m._offer_pool, m._last_slots, m._cursor = (
+        {"Lich Brain": 1, "Totentanz": 2, "Group Hug": 3},
+        {"Lich Brain": 0, "Totentanz": 1, "Group Hug": 2},
+        (1, time.monotonic()),
+    )
     m._offer_gone()
     assert m.taken_augments == ["Totentanz"] and m.pending == [], (m.taken_augments, m.pending)
     m = quest_mon()
-    m._offer_pool, m._last_slots, m._cursor = {"Lich Brain": 1, "Totentanz": 2},         {"Lich Brain": 0, "Totentanz": 1}, (1, time.monotonic() - 60)
+    m._offer_pool, m._last_slots, m._cursor = (
+        {"Lich Brain": 1, "Totentanz": 2},
+        {"Lich Brain": 0, "Totentanz": 1},
+        (1, time.monotonic() - 60),
+    )
     m._offer_gone()
-    assert not m.taken_augments and m.pending == ["Lich Brain", "Totentanz"], "cursor vechi nu decide"
+    assert not m.taken_augments and m.pending == ["Lich Brain", "Totentanz"], (
+        "cursor vechi nu decide"
+    )
 
     # dupa reroll, cardul de sub cursor poate fi unul necitit: nu ghicim dupa un nume ramas din oferta veche
     m = quest_mon()
-    m._offer_pool, m._last_slots, m._cursor = {"Archmage": 1, "Blade Waltz": 2},         {"Blade Waltz": 0, "Final Form": 1}, (2, time.monotonic())
+    m._offer_pool, m._last_slots, m._cursor = (
+        {"Archmage": 1, "Blade Waltz": 2},
+        {"Blade Waltz": 0, "Final Form": 1},
+        (2, time.monotonic()),
+    )
     m._offer_gone()
-    assert not m.taken_augments and m.pending == ["Archmage", "Blade Waltz"], (m.taken_augments, m.pending)
+    assert not m.taken_augments and m.pending == ["Archmage", "Blade Waltz"], (
+        m.taken_augments,
+        m.pending,
+    )
 
     # cat mai ai pana la build complet: componentele din inventar scad din pret
     rec = load_json("item-recipes.json")
-    assert rules_engine.remaining_gold(["Zhonya's Hourglass"], [], rec) == rec["Zhonya's Hourglass"]["gold"]
+    assert (
+        rules_engine.remaining_gold(["Zhonya's Hourglass"], [], rec)
+        == rec["Zhonya's Hourglass"]["gold"]
+    )
     assert rules_engine.remaining_gold(["Zhonya's Hourglass"], ["Zhonya's Hourglass"], rec) == 0
     part = rules_engine.remaining_gold(["Zhonya's Hourglass"], ["Seeker's Armguard"], rec)
     assert 0 < part < rec["Zhonya's Hourglass"]["gold"] - rec["Seeker's Armguard"]["gold"] + 1, part
-    adv = lambda **kw: stat_anvil.advise(**dict(dict(level=12, gold=900, own_items=[], full=False, core=3,
-                                                     left_gold=4000, left_items=3, next_gold=3000), **kw))
-    assert adv(level=8)["state"] == "locked" and adv(core=1)["state"] == "wait"
-    assert adv(gold=300)["state"] == "gold" and adv(gold=300)["need"] == 450
-    assert adv()["state"] == "wait" and "itemul urmator" in adv()["when"], adv()    # 900g: itemul urmator primul
-    assert adv(gold=3600)["state"] == "wait"                                      # 3600 - 750 < 3000
-    assert adv(gold=4000)["state"] == "buy" and "ajunge" in adv(gold=4000)["when"]
-    assert adv(left_items=0, left_gold=0, next_gold=0)["state"] == "buy"          # fara iteme ramase: ia-l
-    assert adv(core=0, full=True, left_items=0, left_gold=0, next_gold=0)["state"] == "buy"
-    assert adv(own_items=["Stat Bonus"])["state"] == "use"
+
+    def anvil_state(
+        *,
+        level: int = 12,
+        gold: int = 900,
+        own_items: list[str] | None = None,
+        full: bool = False,
+        core: int = 3,
+        left_gold: int = 4000,
+        left_items: int = 3,
+        next_gold: int = 3000,
+    ):
+        return stat_anvil.advise(
+            level, gold, own_items or [], full, core, left_gold, left_items, next_gold
+        )
+
+    assert anvil_state(level=8)["state"] == "locked" and anvil_state(core=1)["state"] == "wait"
+    assert anvil_state(gold=300)["state"] == "gold" and anvil_state(gold=300)["need"] == 450
+    assert anvil_state()["state"] == "wait" and "next item" in anvil_state()["when"], (
+        anvil_state()
+    )  # 900g: itemul urmator primul
+    assert anvil_state(gold=3600)["state"] == "wait"  # 3600 - 750 < 3000
+    assert anvil_state(gold=4000)["state"] == "buy" and "enough" in anvil_state(gold=4000)["when"]
+    assert (
+        anvil_state(left_items=0, left_gold=0, next_gold=0)["state"] == "buy"
+    )  # fara iteme ramase: ia-l
+    assert anvil_state(core=0, full=True, left_items=0, left_gold=0, next_gold=0)["state"] == "buy"
+    assert anvil_state(own_items=["Stat Bonus"])["state"] == "use"
     # oferta disparuta fara alegere se pastreaza pentru confirmare; cu o alegere cunoscuta nu
     m = quest_mon()
     m._offer_pool = {"Lich Brain": 1, "Totentanz": 2, "Group Hug": 3}
@@ -1382,15 +1768,33 @@ def selfcheck():
     m._offer_gone()
     assert m.pending == []
     elixir.selfcheck()
+
     # elixirul asteapta itemele: cu itemul urmator nefacut si fara bani pentru amandoua nu apare
-    e_adv = lambda **kw: elixir.advise(**dict(dict(
-        tags=champion_tags, champ="Jinx", allies=["Jinx"], enemies=["Zed"], enemy_items=[], own_items=[],
-        item_stats={}, level=12, gold=900, game_time=600, core=3, left_items=2, reserve=3000), **kw))
-    assert e_adv()["state"] == "wait" and "itemele" in e_adv()["when"]
+    def e_adv(*, gold: int = 900, left_items: int = 2, full: bool = False):
+        return elixir.advise(
+            champion_tags,
+            "Jinx",
+            ["Jinx"],
+            ["Zed"],
+            [],
+            [],
+            {},
+            12,
+            gold,
+            600,
+            core=3,
+            left_items=left_items,
+            reserve=3000,
+            full=full,
+        )
+
+    assert e_adv()["state"] == "wait" and "items" in e_adv()["when"]
     assert e_adv(gold=3600)["state"] == "buy"
     assert e_adv(left_items=0)["state"] == "buy" and e_adv(full=True)["state"] == "buy"
-    print(f"selfcheck OK ({len(champ_id_map)} id-uri, {len(champion_tags)} campioni, "
-          f"{len(rules['rules'])} reguli)")
+    print(
+        f"selfcheck OK ({len(champ_id_map)} id-uri, {len(champion_tags)} campioni, "
+        f"{len(rules['rules'])} reguli)"
+    )
 
 
 def main():
@@ -1403,8 +1807,7 @@ def main():
     rules = load_json("item-rules.json")
     global_augments = load_json("augments-global.json")
 
-    mon = Monitor(champ_id_map, champion_tags, rules, global_augments,
-                  load_json("item-stats.json"))
+    mon = Monitor(champ_id_map, champion_tags, rules, global_augments, load_json("item-stats.json"))
     mon.run()
     build_ui(mon).mainloop()
     mon.stop.set()

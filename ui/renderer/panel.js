@@ -72,9 +72,9 @@ function tierRow(e, kind) {
       h('div.nm', { text: e.name }),
       kind === 'champ' && stats(e),
       // unele augmente ("Upgrade Zhonya's") n-au sens decat daca cumperi itemul
-      e.needs && h('div.why', { text: `CERE ${e.needs}` }),
+      e.needs && h('div.why', { text: `REQUIRES ${e.needs}` }),
       // fara tier aratam ce face; nu inventam un rank
-      kind === 'aug' && !TIER[e.tier] && h('div.desc', { text: (e.desc || 'neclasat de u.gg').slice(0, 110) })),
+      kind === 'aug' && !TIER[e.tier] && h('div.desc', { text: (e.desc || 'unranked by u.gg').slice(0, 110) })),
     label && h('span.tag', { text: label }))
 }
 
@@ -94,10 +94,10 @@ function nextItems(items, extra = [], extraLabel = null) {
     h('div.hero', {},
       tip(icon(head.icon, head.item), head.item, tipText(head)),
       h('div.txt', {},
-        h('div.k', { text: 'CUMPARA ACUM' }),
+        h('div.k', { text: 'BUY NOW' }),
         h('div.nm', { text: head.item }),
         head.reason && h('div.why', { text: head.reason }))),
-    (rest.length || extra.length) && strip(rest, rest.length ? 'APOI' : extraLabel, extra),
+    (rest.length || extra.length) && strip(rest, rest.length ? 'THEN' : extraLabel, extra),
   ]
 }
 
@@ -108,8 +108,8 @@ function sellRow(s) {
     h('span.arrow', { text: '→' }),
     tip(icon(s.buy_icon, s.buy), s.buy),
     h('div.txt', {},
-      h('div.k', { text: `VINDE ${s.sell}` }),
-      h('div.nm', { text: `IA ${s.buy}` }),
+      h('div.k', { text: `SELL ${s.sell}` }),
+      h('div.nm', { text: `BUY ${s.buy}` }),
       s.reason && h('div.why', { text: s.reason })))
 }
 
@@ -123,10 +123,10 @@ function anvilRow(s) {
 
 // oferta de augmente disparuta fara alegere cunoscuta: un click pe cel pe care l-ai luat
 function pendingRows(list) {
-  const skip = h('button.chip', { text: 'NICIUNUL / NU STIU' })
+  const skip = h('button.chip', { text: 'NONE / NOT SURE' })
   skip.addEventListener('click', () => api.send('cmd', { cmd: 'skip' }))
   return [
-    sec('CE AUGMENT AI ALES?'),
+    sec('WHICH AUGMENT DID YOU PICK?'),
     list.map(a => {
       const el = tierRow(a, 'aug')
       el.classList.add('pick')
@@ -142,13 +142,13 @@ function buyIcons(d) {
   const out = []
   const a = d.anvil_buy
   if (a && (a.state === 'buy' || a.state === 'use')) {
-    out.push(tip(icon(a.icon, 'Stat Anvil', '.glow'), `Stat Anvil 750g  ·  ${a.state === 'use' ? 'deschide-l' : 'ia-l acum'}`, a.when))
+    out.push(tip(icon(a.icon, 'Stat Anvil', '.glow'), `Stat Anvil 750g  ·  ${a.state === 'use' ? 'open it' : 'buy now'}`, a.when))
   }
   const e = d.elixir
   if (e && (e.state === 'buy' || e.state === 'use')) {
     const scores = Object.entries(e.scores).map(([n, v]) => `${n.replace('Elixir of ', '')}: ${v}`).join('\n')
     const el = tip(icon(e.icon, e.pick, '.glow.pickable'), `${e.pick} 500g`,
-      `${e.when}\n${e.why || ''}\n\n${scores}\n\nClick: l-am baut`)
+      `${e.when}\n${e.why || ''}\n\n${scores}\n\nClick: I drank it`)
     // aplicatia nu vede mereu cand il bei (poate fi intre doua citiri): click = l-am baut
     el.addEventListener('click', () => api.send('cmd', { cmd: 'elixir' }))
     out.push(el)
@@ -162,7 +162,7 @@ function headlinerRow(hl) {
   const send = name => api.send('cmd', { cmd: 'headliner', name })
   const info = (el, n) => tip(el, n, `${hl.info[n].effect}\n\n${hl.info[n].tip}`)
   return [
-    sec('ALEGE HEADLINER'),
+    sec('CHOOSE HEADLINER'),
     h('div.chips', {}, hl.options.map(o => {
       const b = info(icon(o.icon, o.name, '.pickable'), o.name)
       b.addEventListener('click', () => send(o.name))
@@ -180,7 +180,7 @@ function headlinerInline(hl) {
   // creionul sta pe coltul iconitei: un singur obiect, nu doua
   return [h('div.hlwrap', {},
     tip(icon(cur.icon, cur.name, '.hl'), cur.name, [hl.info[cur.name].effect, hl.info[cur.name].tip].join('\n\n')),
-    tip(edit, 'Schimba headliner', null))]
+    tip(edit, 'Change headliner', null))]
 }
 
 function stateRow(label, value, ok) {
@@ -194,18 +194,18 @@ const waiting = () => h('div.wait', {}, Array.from({ length: 16 }, (_, i) => h('
 function idle(d) {
   const c = S.counts || {}
   return [
-    sec('STARE'),
-    stateRow('CLIENT LEAGUE', d.client_up ? 'PORNIT' : 'OPRIT', d.client_up),
-    stateRow('MECI', 'NU', false),
-    sec('ASTEPT'),
+    sec('STATUS'),
+    stateRow('LEAGUE CLIENT', d.client_up ? 'RUNNING' : 'CLOSED', d.client_up),
+    stateRow('MATCH', 'NOT IN GAME', false),
+    sec('WAITING'),
     waiting(),
-    note('Se umple singura cand intri in champ select de Mayhem sau cand incepe meciul.'),
-    sec('DATE LOCALE'),
-    note(`${c.builds ?? '?'} build-uri  ·  ${c.champions ?? '?'} campioni  ·  ${c.augments ?? '?'} augmente`),
+    note('This panel fills automatically when you enter Mayhem champion select or start a match.'),
+    sec('LOCAL DATA'),
+    note(`${c.builds ?? '?'} builds  ·  ${c.champions ?? '?'} champions  ·  ${c.augments ?? '?'} augments`),
     d.error && note(d.error, 'err'),
-    sec('SCURTATURA'),
-    note(`${S.hotkeyLabel} strange fereastra la bara de titlu. Daca nu merge (unele anti-cheat-uri `
-      + 'blocheaza taste globale cat jocul e activ), click pe "_" din colt face acelasi lucru.'),
+    sec('SHORTCUT'),
+    note(`${S.hotkeyLabel} collapses the window to its title bar. If the shortcut is blocked `
+      + 'while the game is active, click "_" in the corner instead.'),
   ]
 }
 
@@ -213,22 +213,22 @@ function idle(d) {
 // bun si spell-urile lui; decizia se vede fara scroll.
 function champSelect(d) {
   const [best, ...rest] = d.pool || []
-  if (!best) return [note('se incarca...')]
+  if (!best) return [note('loading...')]
   return [
-    sec('CEL MAI BUN'),
+    sec('BEST PICK'),
     tierRow(best, 'champ'),
     d.summoners.length > 0 && [
       sec(`SUMMONER SPELLS  ·  ${best.name}`),
       h('div.strip', {}, d.summoners.map(s => h('div.row', {}, icon(s.icon, s.name), h('div.nm', { text: s.name })))),
     ],
-    rest.length > 0 && [sec('RESTUL  ·  DUPA TIER'), rest.map(e => tierRow(e, 'champ'))],
+    rest.length > 0 && [sec('OTHER PICKS  ·  BY TIER'), rest.map(e => tierRow(e, 'champ'))],
   ]
 }
 
 // augmentele alese, intr-o lista derulanta sus; X scoate unul pus gresit
 function takenDrop(list) {
   const head = h('div.state.drop' + (takenOpen ? '.open' : ''), {},
-    h('span', { text: 'AUGMENTE ALESE' }), h('b', { text: `${list.length}  ${takenOpen ? '▴' : '▾'}` }))
+    h('span', { text: 'SELECTED AUGMENTS' }), h('b', { text: `${list.length}  ${takenOpen ? '▴' : '▾'}` }))
   head.addEventListener('click', () => { takenOpen = !takenOpen; render(true) })
   if (!takenOpen) return head
   return [head, h('div.droplist', {}, list.length
@@ -237,7 +237,7 @@ function takenDrop(list) {
       x.addEventListener('click', () => api.send('cmd', { cmd: 'drop', name: a.name }))
       return tip(h('div.row', {}, icon(a.icon, a.name), h('div.txt', {}, h('div.nm', { text: a.name })), x), a.name, a.desc)
     })
-    : [note('niciun augment ales inca')])]
+    : [note('no augments selected yet')])]
 }
 
 // Doar ce te ajuta sa castigi meciul: ce cumperi, ce vinzi, ce shard iei.
@@ -246,27 +246,27 @@ function inGame(d) {
   if (d.status) out.push(note(d.status))
   out.push(takenDrop(d.taken || []))
   if (d.pending && d.pending.length) out.push(pendingRows(d.pending))
-  if (d.offer.length) out.push(sec('OFERTA'), d.offer.map(a => tierRow(a, 'aug')))
+  if (d.offer.length) out.push(sec('OFFER'), d.offer.map(a => tierRow(a, 'aug')))
   if (d.anvil.length) out.push(sec('STAT ANVIL'), d.anvil.map(anvilRow))
   const b = d.build
   const buy = buyIcons(d)
   const picked = d.headliner && d.headliner.picked ? headlinerInline(d.headliner) : []
   const extra = buy.concat(picked)
-  const label = buy.length ? 'IA ACUM' : null
+  const label = buy.length ? 'BUY NOW' : null
   if (b) {
     if (b.starting.length) out.push(sec('START'), strip(b.starting))
     // vanzarea e cel mai urgent lucru de pe ecran: sta prima
     if (b.sell) out.push(b.sell && sellRow(b.sell))
     if (b.next.length) out.push(nextItems(b.next, extra, label))
-    else if (b.complete.length) out.push(sec('BUILD COMPLET'), strip(b.complete, null, extra))
+    else if (b.complete.length) out.push(sec('FULL BUILD'), strip(b.complete, null, extra))
     else if (extra.length) out.push(strip([], label, extra))
     if (b.unavailable.length) {
-      out.push(note('Indisponibil: ' + b.unavailable.join(', ') + (b.range ? ` (esti ${b.range})` : '')))
+      out.push(note('Unavailable: ' + b.unavailable.join(', ') + (b.range ? ` (you are ${b.range})` : '')))
     }
   }
   if (!b && extra.length) out.push(strip([], label, extra))
   if (d.headliner && !d.headliner.picked) out.push(headlinerRow(d.headliner))
-  if (d.loading) out.push(note('se incarca...'))
+  if (d.loading) out.push(note('loading...'))
   return out
 }
 
@@ -305,8 +305,8 @@ function chrome() {
   const v = S.view, d = S.data || {}
   $('title').textContent = v === 'in_game' && d.champ ? d.champ.toUpperCase() : 'ARAM MAYHEM'
   $('sub').textContent = v === 'champ_select' ? 'CHAMP SELECT  ·  REROLL'
-    : v === 'in_game' ? `IN JOC  ·  ${(d.champ || '?').toUpperCase()}` + (d.enemies ? `  ·  VS ${d.enemies}` : '')
-      : 'IDLE  ·  ASTEPT'
+    : v === 'in_game' ? `IN GAME  ·  ${(d.champ || '?').toUpperCase()}` + (d.enemies ? `  ·  VS ${d.enemies}` : '')
+      : 'IDLE  ·  WAITING'
 
   const u = S.update || {}
   $('upd').hidden = !u.tag
@@ -320,7 +320,7 @@ function chrome() {
 
   const status = []
   if (S.error) status.push(S.error)
-  if (!S.hotkey) status.push(`${S.hotkeyLabel} ocupat -- foloseste "_" din titlu`)
+  if (!S.hotkey) status.push(`${S.hotkeyLabel} unavailable -- use "_" in the title bar`)
   if (v !== 'in_game' && d.status) status.push(d.status)
   $('foot').textContent = status.join('  ·  ').toUpperCase()
 }
@@ -391,7 +391,7 @@ click('snap', () => api.send('cmd', { cmd: 'snap' }))
 click('bug', () => api.send('cmd', { cmd: 'report' }))
 click('ver', () => api.send('cmd', { cmd: 'update' }))
 click('upd', () => api.send('cmd', { cmd: 'restart' }))
-tip($('bug'), 'Raporteaza un bug', 'Trimite ce vede aplicatia acum, ca sa pot repara.')
-tip($('snap'), 'Aseaza in gol', 'Pune panoul inapoi intre HUD si minimap. Il poti trage si pe alt ecran: ramane acolo.')
-tip($('ver'), 'Versiunea', 'Click: cauta si instaleaza acum o versiune noua.')
-tip($('upd'), 'Versiune noua instalata', 'Click: reporneste pe ea acum. In afara meciului se reporneste singura.')
+tip($('bug'), 'Report a bug', 'Describe a problem and review diagnostics before sending.')
+tip($('snap'), 'Reset panel position', 'Move the panel back between the HUD and minimap. You can also drag it to another screen.')
+tip($('ver'), 'Version', 'Click to check for updates.')
+tip($('upd'), 'Update ready', 'Click to restart and apply the update. The app restarts automatically when outside a match or champion select.')

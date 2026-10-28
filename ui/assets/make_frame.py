@@ -11,17 +11,18 @@ devine transparent: acolo panoul isi pune singur fundalul (vezi style.css).
 
 import pathlib
 import sys
+from typing import cast
 
 from PIL import Image, ImageOps
 
-S = 40                       # latura unui colt in pixeli de atlas = border-image-slice
-MAP = (35, 90, 345, 401)     # rama minimap-ului in atlas (doar firul auriu, fara vecini)
-FILL = (16, 28, 27)          # umplutura dintre linia teal si gaura hartii
+S = 40  # latura unui colt in pixeli de atlas = border-image-slice
+MAP = (35, 90, 345, 401)  # rama minimap-ului in atlas (doar firul auriu, fara vecini)
+FILL = (16, 28, 27)  # umplutura dintre linia teal si gaura hartii
 
 
 def build(atlas):
     a = Image.open(atlas).convert("RGBA")
-    l, t, r, b = MAP
+    l, t, _r, b = MAP
     tl = a.crop((l, t, l + S, t + S))
     bl = a.crop((l, b - S, l + S, b))
     top = a.crop((l + 150, t, l + 154, t + S))
@@ -41,6 +42,7 @@ def build(atlas):
     # interiorul: umplere din centru peste golul hartii si umplutura plata,
     # pana la linia teal. Exteriorul (coltul de dupa ornament) ramane transparent.
     px = out.load()
+    assert px is not None
     w, h = out.size
     seen, stack = set(), [(w // 2, h // 2)]
     while stack:
@@ -48,7 +50,8 @@ def build(atlas):
         if (x, y) in seen or not (0 <= x < w and 0 <= y < h):
             continue
         seen.add((x, y))
-        c = px[x, y]
+        # The RGBA image guarantees four integer channels; PixelAccess is mode-agnostic.
+        c = cast(tuple[int, int, int, int], px[x, y])
         if c[3] > 20 and c[:3] != FILL:
             continue
         px[x, y] = (0, 0, 0, 0)
@@ -62,7 +65,8 @@ if __name__ == "__main__":
     dest = pathlib.Path(__file__).with_name("hud-frame.png")
     frame.save(dest)
     # verificare: centrul gol, colturile exterioare goale, firul auriu opac
-    assert frame.getpixel((S + 2, S + 2))[3] == 0
-    assert frame.getpixel((0, 0))[3] == 0 and frame.getpixel((2 * S + 3, 0))[3] == 0
-    assert frame.getpixel((S + 2, 5))[3] == 255, "firul auriu de sus trebuie sa ramana"
+    alpha = frame.getchannel("A")
+    assert alpha.getpixel((S + 2, S + 2)) == 0
+    assert alpha.getpixel((0, 0)) == 0 and alpha.getpixel((2 * S + 3, 0)) == 0
+    assert alpha.getpixel((S + 2, 5)) == 255, "firul auriu de sus trebuie sa ramana"
     print(dest, frame.size)

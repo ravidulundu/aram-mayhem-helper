@@ -74,13 +74,13 @@ function startEngine() {
     }
   })
   child.stderr.on('data', d => { err = (err + d).slice(-8000) })
-  child.on('error', e => { engineError = `motorul nu porneste: ${e.code || e.message}`; pushState() })
+  child.on('error', e => { engineError = `engine failed to start: ${e.code || e.message}`; pushState() })
   child.on('exit', code => {
     if (engine === child) engine = null
     if (quitting) return
-    try { fs.writeFileSync(path.join(HOME, 'eroare.log'), `motorul s-a oprit (cod ${code})\n${err}`) } catch {}
+    try { fs.writeFileSync(path.join(HOME, 'eroare.log'), `engine stopped (code ${code})\n${err}`) } catch {}
     if (++crashes <= 3) setTimeout(startEngine, 1500 * crashes)
-    else { engineError = 'motorul s-a oprit, detalii in eroare.log'; pushState() }
+    else { engineError = 'engine stopped; see eroare.log for details'; pushState() }
   })
 }
 
@@ -103,7 +103,7 @@ function onEngine(line) {
     pending.get(msg.id)(msg)
     pending.delete(msg.id)
   } else if (msg.t === 'error' && msg.text === 'already running') {
-    engineError = 'ruleaza deja o alta copie (vezi taskbar-ul sau Task Manager)'
+    engineError = 'another copy is already running (check the taskbar or Task Manager)'
     pushState()
   }
 }
@@ -314,7 +314,7 @@ function pushState() {
 
 function createPanel() {
   // singura fereastra cu buton in taskbar: de acolo il fixezi (pin) si ii vezi iconita
-  panel = overlay('aram://panel/panel.html', { skipTaskbar: false })
+  panel = overlay('aram://panel/panel.html', { skipTaskbar: false, focusable: true })
   if (process.platform === 'win32') {
     command({ cmd: 'taskbar', hwnd: panel.getNativeWindowHandle().readBigUInt64LE().toString() })
   }
@@ -447,13 +447,13 @@ let report = null
 
 function openReport() {
   if (report) { report.show(); report.focus(); return }
-  report = overlay('aram://report/report.html', { focusable: true, title: 'Raporteaza un bug' })
+  report = overlay('aram://report/report.html', { focusable: true, title: 'Report a bug' })
   report.on('closed', () => { report = null })
 }
 
 ipcMain.handle('report-init', async () => {
   const diag = await ask({ cmd: 'diag' }, 5000)
-  return { diag: diag?.text || '(motorul nu a raspuns)', version: app.getVersion() }
+  return { diag: diag?.text || '(engine did not respond)', version: app.getVersion() }
 })
 
 ipcMain.on('report-size', (_e, s) => {
@@ -471,7 +471,7 @@ ipcMain.on('report-size', (_e, s) => {
 })
 
 ipcMain.handle('report-send', (_e, r) => ask({ cmd: 'report', desc: String(r.desc || ''),
-  email: String(r.email || ''), diag: r.include ? String(r.diag || '') : '(diagnostic omis de utilizator)' }))
+  email: String(r.email || ''), diag: r.include ? String(r.diag || '') : '(diagnostics omitted by user)' }))
 ipcMain.on('report-mailto', (_e, r) => command({ cmd: 'mailto', desc: String(r.desc || ''), diag: String(r.diag || '') }))
 ipcMain.on('report-close', () => report?.close())
 
@@ -524,8 +524,8 @@ autoUpdater.on('update-downloaded', info => {
   Object.assign(update, { tag: 'v' + info.version, busy: false })
   pushState()
 })
-autoUpdater.on('update-not-available', () => finishCheck('esti la zi'))
-autoUpdater.on('error', e => finishCheck('eroare: ' + (e.code || e.name || 'update')))
+autoUpdater.on('update-not-available', () => finishCheck('up to date'))
+autoUpdater.on('error', e => finishCheck('error: ' + (e.code || e.name || 'update')))
 
 function restart() {
   if (!update.tag) return

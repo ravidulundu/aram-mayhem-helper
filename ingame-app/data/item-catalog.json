@@ -1,0 +1,2768 @@
+{
+ "version": "16.21",
+ "source": "https://data.aramkit.com/resources/16.21-32001640c0a4/en-US/resources/items.json",
+ "items": {
+  "No Boots": {
+   "acquisition": "synthetic",
+   "purchasable": false,
+   "isFinal": false,
+   "categories": [],
+   "stats": {}
+  },
+  "Boots": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "Boots"
+   ],
+   "stats": {}
+  },
+  "Faerie Charm": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "ManaRegen"
+   ],
+   "stats": {}
+  },
+  "Rejuvenation Bead": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "HealthRegen"
+   ],
+   "stats": {}
+  },
+  "Giant's Belt": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "Health"
+   ],
+   "stats": {
+    "hp": 350.0
+   }
+  },
+  "Cloak of Agility": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "CriticalStrike"
+   ],
+   "stats": {
+    "crit": 15.0
+   }
+  },
+  "Blasting Wand": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "SpellDamage"
+   ],
+   "stats": {
+    "ap": 45.0
+   }
+  },
+  "Sapphire Crystal": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "Mana"
+   ],
+   "stats": {}
+  },
+  "Ruby Crystal": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "Health"
+   ],
+   "stats": {
+    "hp": 150.0
+   }
+  },
+  "Cloth Armor": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "Armor"
+   ],
+   "stats": {
+    "armor": 15.0
+   }
+  },
+  "Chain Vest": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "Armor"
+   ],
+   "stats": {
+    "armor": 40.0
+   }
+  },
+  "Null-Magic Mantle": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "SpellBlock"
+   ],
+   "stats": {
+    "mr": 20.0
+   }
+  },
+  "Long Sword": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "Damage",
+    "Lane"
+   ],
+   "stats": {
+    "ad": 10.0
+   }
+  },
+  "Pickaxe": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "Damage"
+   ],
+   "stats": {
+    "ad": 25.0
+   }
+  },
+  "B. F. Sword": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "Damage"
+   ],
+   "stats": {
+    "ad": 40.0
+   }
+  },
+  "Dagger": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "AttackSpeed"
+   ],
+   "stats": {
+    "as": 10.0
+   }
+  },
+  "Recurve Bow": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "AttackSpeed",
+    "OnHit"
+   ],
+   "stats": {
+    "as": 15.0
+   }
+  },
+  "Amplifying Tome": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "SpellDamage"
+   ],
+   "stats": {
+    "ap": 20.0
+   }
+  },
+  "Vampiric Scepter": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "Damage",
+    "LifeSteal"
+   ],
+   "stats": {
+    "ad": 15.0
+   }
+  },
+  "Negatron Cloak": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "SpellBlock"
+   ],
+   "stats": {
+    "mr": 45.0
+   }
+  },
+  "Needlessly Large Rod": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "SpellDamage"
+   ],
+   "stats": {
+    "ap": 65.0
+   }
+  },
+  "Jarvan I's": {
+   "acquisition": "conditional",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Armor",
+    "AttackSpeed",
+    "Boots",
+    "Tenacity",
+    "MagicPenetration",
+    "MagicResist",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "as": 25.0,
+    "haste": 10.0,
+    "armor": 25.0,
+    "mr": 20.0
+   }
+  },
+  "Health Potion": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "HealthRegen",
+    "Consumable",
+    "Lane",
+    "Jungle"
+   ],
+   "stats": {}
+  },
+  "Steel Sigil": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "Armor",
+    "Damage"
+   ],
+   "stats": {
+    "ad": 15.0,
+    "armor": 30.0
+   }
+  },
+  "The Brutalizer": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "Damage",
+    "CooldownReduction",
+    "ArmorPenetration"
+   ],
+   "stats": {
+    "ad": 25.0,
+    "haste": 10.0
+   }
+  },
+  "Tunneler": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "Health",
+    "Damage"
+   ],
+   "stats": {
+    "ad": 15.0,
+    "hp": 250.0
+   }
+  },
+  "Glowing Mote": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "CooldownReduction"
+   ],
+   "stats": {
+    "haste": 5.0
+   }
+  },
+  "Refillable Potion": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "HealthRegen",
+    "Consumable",
+    "Active",
+    "Lane",
+    "Jungle"
+   ],
+   "stats": {}
+  },
+  "Guardian's Horn": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "Health",
+    "HealthRegen",
+    "Lane"
+   ],
+   "stats": {
+    "hp": 150.0
+   }
+  },
+  "Shurelya's Battlesong": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "SpellDamage",
+    "ManaRegen",
+    "Active",
+    "CooldownReduction",
+    "NonbootsMovement",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "ap": 50.0,
+    "haste": 15.0
+   }
+  },
+  "Elixir of Iron": {
+   "acquisition": "conditional",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "Health",
+    "Consumable",
+    "NonbootsMovement",
+    "Tenacity"
+   ],
+   "stats": {}
+  },
+  "Elixir of Sorcery": {
+   "acquisition": "conditional",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "Consumable",
+    "ManaRegen",
+    "SpellDamage"
+   ],
+   "stats": {}
+  },
+  "Elixir of Wrath": {
+   "acquisition": "conditional",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "Consumable",
+    "Damage",
+    "LifeSteal",
+    "SpellVamp"
+   ],
+   "stats": {}
+  },
+  "Cappa Juice": {
+   "acquisition": "conditional",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "Damage",
+    "Consumable"
+   ],
+   "stats": {}
+  },
+  "Seeker's Armguard": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "Armor",
+    "SpellDamage",
+    "Active"
+   ],
+   "stats": {
+    "ap": 40.0,
+    "armor": 25.0
+   }
+  },
+  "Overlord's Bloodmail": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Health",
+    "Damage"
+   ],
+   "stats": {
+    "ad": 30.0,
+    "hp": 550.0
+   }
+  },
+  "Unending Despair": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Health",
+    "Armor",
+    "CooldownReduction",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "hp": 400.0,
+    "armor": 50.0,
+    "haste": 15.0
+   }
+  },
+  "Blackfire Torch": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "SpellDamage",
+    "Mana",
+    "CooldownReduction",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "ap": 80.0,
+    "haste": 20.0
+   }
+  },
+  "Kaenic Rookern": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Health",
+    "SpellBlock",
+    "HealthRegen"
+   ],
+   "stats": {
+    "hp": 400.0,
+    "mr": 80.0
+   }
+  },
+  "Fated Ashes": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "SpellDamage"
+   ],
+   "stats": {
+    "ap": 30.0
+   }
+  },
+  "Dusk and Dawn": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Health",
+    "AttackSpeed",
+    "SpellDamage",
+    "OnHit",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "hp": 300.0,
+    "ap": 60.0,
+    "haste": 20.0,
+    "as": 20.0
+   }
+  },
+  "Fiendhunter Bolts": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "CriticalStrike",
+    "AttackSpeed",
+    "NonbootsMovement",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "as": 45.0,
+    "crit": 25.0
+   }
+  },
+  "Endless Hunger": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Damage",
+    "LifeSteal",
+    "SpellVamp",
+    "Tenacity",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "ad": 65.0
+   }
+  },
+  "Actualizer": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "SpellDamage",
+    "Mana",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "ap": 90.0,
+    "haste": 10.0
+   }
+  },
+  "Hexoptics C44": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Damage",
+    "CriticalStrike"
+   ],
+   "stats": {
+    "ad": 55.0,
+    "crit": 25.0
+   }
+  },
+  "Bandlepipes": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Health",
+    "SpellBlock",
+    "Armor",
+    "AttackSpeed",
+    "NonbootsMovement",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "hp": 200.0,
+    "haste": 15.0,
+    "armor": 20.0,
+    "mr": 20.0
+   }
+  },
+  "Protoplasm Harness": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Health",
+    "NonbootsMovement",
+    "Tenacity",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "hp": 600.0,
+    "haste": 20.0
+   }
+  },
+  "Whispering Circlet": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Health",
+    "Mana",
+    "ManaRegen"
+   ],
+   "stats": {
+    "hp": 200.0
+   }
+  },
+  "Diadem of Songs": {
+   "acquisition": "transform",
+   "purchasable": false,
+   "isFinal": true,
+   "categories": [
+    "Health",
+    "Mana",
+    "ManaRegen",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "hp": 200.0
+   }
+  },
+  "Archangel's Staff": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "SpellDamage",
+    "Mana",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "ap": 70.0,
+    "haste": 25.0
+   }
+  },
+  "Manamune": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Damage",
+    "Mana",
+    "CooldownReduction",
+    "OnHit",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "ad": 35.0,
+    "haste": 15.0
+   }
+  },
+  "Berserker's Greaves": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "AttackSpeed",
+    "Boots"
+   ],
+   "stats": {
+    "as": 30.0
+   }
+  },
+  "Gluttonous Greaves": {
+   "acquisition": "shop",
+   "purchasable": false,
+   "isFinal": true,
+   "categories": [
+    "LifeSteal",
+    "SpellVamp",
+    "Boots"
+   ],
+   "stats": {}
+  },
+  "Boots of Swiftness": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Boots"
+   ],
+   "stats": {}
+  },
+  "Sorcerer's Shoes": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Boots",
+    "MagicPenetration"
+   ],
+   "stats": {}
+  },
+  "Glacial Buckler": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "Armor",
+    "Mana",
+    "CooldownReduction",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "armor": 25.0,
+    "haste": 10.0
+   }
+  },
+  "Infinity Edge": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "CriticalStrike",
+    "Damage"
+   ],
+   "stats": {
+    "ad": 75.0,
+    "crit": 25.0
+   }
+  },
+  "Yun Tal Wildarrows": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Damage",
+    "CriticalStrike",
+    "AttackSpeed"
+   ],
+   "stats": {
+    "ad": 50.0,
+    "as": 45.0,
+    "crit": 0.0
+   }
+  },
+  "Mortal Reminder": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Damage",
+    "CriticalStrike",
+    "ArmorPenetration"
+   ],
+   "stats": {
+    "ad": 35.0,
+    "crit": 25.0
+   }
+  },
+  "Last Whisper": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "ArmorPenetration",
+    "Damage"
+   ],
+   "stats": {
+    "ad": 20.0
+   }
+  },
+  "Lord Dominik's Regards": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Damage",
+    "CriticalStrike",
+    "ArmorPenetration"
+   ],
+   "stats": {
+    "ad": 35.0,
+    "crit": 25.0
+   }
+  },
+  "Atma's Reckoning": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Health",
+    "CriticalStrike"
+   ],
+   "stats": {
+    "hp": 700.0,
+    "crit": 20.0,
+    "haste": 10.0
+   }
+  },
+  "Seraph's Embrace": {
+   "acquisition": "transform",
+   "purchasable": false,
+   "isFinal": true,
+   "categories": [
+    "SpellDamage",
+    "Mana",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "ap": 70.0,
+    "haste": 25.0
+   }
+  },
+  "Muramana": {
+   "acquisition": "transform",
+   "purchasable": false,
+   "isFinal": true,
+   "categories": [
+    "Damage",
+    "Mana",
+    "CooldownReduction",
+    "OnHit",
+    "ArmorPenetration"
+   ],
+   "stats": {
+    "ad": 35.0,
+    "haste": 15.0
+   }
+  },
+  "Phage": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "Health",
+    "Damage",
+    "NonbootsMovement"
+   ],
+   "stats": {
+    "ad": 15.0,
+    "hp": 200.0
+   }
+  },
+  "Phantom Dancer": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "CriticalStrike",
+    "AttackSpeed",
+    "NonbootsMovement"
+   ],
+   "stats": {
+    "as": 65.0,
+    "crit": 25.0
+   }
+  },
+  "Plated Steelcaps": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Armor",
+    "Boots"
+   ],
+   "stats": {
+    "armor": 25.0
+   }
+  },
+  "Zeke's Convergence": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Health",
+    "SpellBlock",
+    "Armor",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "hp": 300.0,
+    "armor": 25.0,
+    "mr": 25.0,
+    "haste": 10.0
+   }
+  },
+  "Hearthbound Axe": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "Damage",
+    "AttackSpeed"
+   ],
+   "stats": {
+    "ad": 20.0,
+    "as": 20.0
+   }
+  },
+  "Sterak's Gage": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Health",
+    "Damage",
+    "Tenacity"
+   ],
+   "stats": {
+    "hp": 400.0
+   }
+  },
+  "Sheen": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "OnHit",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "haste": 10.0
+   }
+  },
+  "Spirit Visage": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Health",
+    "SpellBlock",
+    "HealthRegen",
+    "CooldownReduction",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "hp": 400.0,
+    "mr": 50.0,
+    "haste": 10.0
+   }
+  },
+  "Winged Moonplate": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "Health",
+    "NonbootsMovement"
+   ],
+   "stats": {
+    "hp": 200.0
+   }
+  },
+  "Kindlegem": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "Health",
+    "CooldownReduction",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "hp": 200.0,
+    "haste": 10.0
+   }
+  },
+  "Sunfire Aegis": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Health",
+    "Armor",
+    "Aura",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "hp": 350.0,
+    "armor": 50.0,
+    "haste": 10.0
+   }
+  },
+  "Tear of the Goddess": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "Mana",
+    "ManaRegen"
+   ],
+   "stats": {}
+  },
+  "Black Cleaver": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Health",
+    "Damage",
+    "CooldownReduction",
+    "OnHit",
+    "NonbootsMovement",
+    "ArmorPenetration",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "ad": 45.0,
+    "hp": 400.0,
+    "haste": 20.0
+   }
+  },
+  "Bloodthirster": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Damage",
+    "LifeSteal"
+   ],
+   "stats": {
+    "ad": 80.0
+   }
+  },
+  "Experimental Hexplate": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Health",
+    "Damage",
+    "AttackSpeed",
+    "CooldownReduction",
+    "NonbootsMovement",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "ad": 40.0,
+    "as": 20.0,
+    "hp": 450.0
+   }
+  },
+  "Ravenous Hydra": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Damage",
+    "LifeSteal",
+    "CooldownReduction",
+    "OnHit",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "ad": 65.0,
+    "haste": 15.0
+   }
+  },
+  "Thornmail": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Health",
+    "Armor"
+   ],
+   "stats": {
+    "hp": 150.0,
+    "armor": 75.0
+   }
+  },
+  "Bramble Vest": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "Armor"
+   ],
+   "stats": {
+    "armor": 30.0
+   }
+  },
+  "Tiamat": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "Damage",
+    "OnHit"
+   ],
+   "stats": {
+    "ad": 25.0
+   }
+  },
+  "Trinity Force": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Health",
+    "Damage",
+    "AttackSpeed",
+    "CooldownReduction",
+    "OnHit",
+    "NonbootsMovement",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "ad": 36.0,
+    "as": 30.0,
+    "hp": 333.0,
+    "haste": 15.0
+   }
+  },
+  "Warden's Mail": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "Armor"
+   ],
+   "stats": {
+    "armor": 40.0
+   }
+  },
+  "Warmog's Armor": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Health",
+    "HealthRegen"
+   ],
+   "stats": {
+    "hp": 1000.0
+   }
+  },
+  "Heartsteel": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Health",
+    "HealthRegen"
+   ],
+   "stats": {
+    "hp": 900.0
+   }
+  },
+  "Runaan's Hurricane": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "CriticalStrike",
+    "AttackSpeed",
+    "OnHit",
+    "NonbootsMovement"
+   ],
+   "stats": {
+    "as": 40.0,
+    "crit": 25.0
+   }
+  },
+  "Zeal": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "CriticalStrike",
+    "AttackSpeed",
+    "NonbootsMovement"
+   ],
+   "stats": {
+    "as": 15.0,
+    "crit": 15.0
+   }
+  },
+  "Statikk Shiv": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Damage",
+    "AttackSpeed",
+    "SpellDamage",
+    "OnHit",
+    "NonbootsMovement"
+   ],
+   "stats": {
+    "ad": 45.0,
+    "ap": 45.0,
+    "as": 30.0
+   }
+  },
+  "Rabadon's Deathcap": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "SpellDamage"
+   ],
+   "stats": {
+    "ap": 130.0
+   }
+  },
+  "Wit's End": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "SpellBlock",
+    "AttackSpeed",
+    "OnHit",
+    "Tenacity"
+   ],
+   "stats": {
+    "as": 50.0,
+    "mr": 45.0
+   }
+  },
+  "Rapid Firecannon": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "CriticalStrike",
+    "AttackSpeed",
+    "NonbootsMovement"
+   ],
+   "stats": {
+    "as": 35.0,
+    "crit": 25.0
+   }
+  },
+  "Stormrazor": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Damage",
+    "CriticalStrike",
+    "AttackSpeed",
+    "NonbootsMovement"
+   ],
+   "stats": {
+    "ad": 50.0,
+    "as": 25.0,
+    "crit": 25.0
+   }
+  },
+  "Lich Bane": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "SpellDamage",
+    "OnHit",
+    "NonbootsMovement",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "ap": 100.0,
+    "haste": 10.0
+   }
+  },
+  "Banshee's Veil": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "SpellBlock",
+    "SpellDamage"
+   ],
+   "stats": {
+    "ap": 105.0,
+    "mr": 40.0
+   }
+  },
+  "Redemption": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "SpellDamage",
+    "ManaRegen",
+    "CooldownReduction",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "ap": 30.0,
+    "haste": 15.0
+   }
+  },
+  "Fiendish Codex": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "SpellDamage",
+    "CooldownReduction",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "ap": 25.0,
+    "haste": 10.0
+   }
+  },
+  "Knight's Vow": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Health",
+    "HealthRegen",
+    "Armor",
+    "Aura",
+    "Active",
+    "CooldownReduction",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "hp": 200.0,
+    "armor": 40.0,
+    "haste": 10.0
+   }
+  },
+  "Frozen Heart": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Armor",
+    "Mana",
+    "Aura",
+    "CooldownReduction",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "armor": 75.0,
+    "haste": 20.0
+   }
+  },
+  "Mercury's Treads": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Boots",
+    "SpellBlock",
+    "Tenacity"
+   ],
+   "stats": {
+    "mr": 20.0
+   }
+  },
+  "Guardian's Orb": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "Health",
+    "SpellDamage",
+    "ManaRegen",
+    "Lane"
+   ],
+   "stats": {
+    "ap": 50.0,
+    "hp": 150.0
+   }
+  },
+  "Aether Wisp": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "NonbootsMovement",
+    "SpellDamage"
+   ],
+   "stats": {
+    "ap": 30.0
+   }
+  },
+  "Forbidden Idol": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "ManaRegen"
+   ],
+   "stats": {}
+  },
+  "Nashor's Tooth": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "AttackSpeed",
+    "SpellDamage",
+    "OnHit",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "ap": 80.0,
+    "as": 50.0,
+    "haste": 15.0
+   }
+  },
+  "Rylai's Crystal Scepter": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Health",
+    "SpellDamage",
+    "Slow"
+   ],
+   "stats": {
+    "ap": 65.0,
+    "hp": 400.0
+   }
+  },
+  "Malignance": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "SpellDamage",
+    "Mana",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "ap": 90.0,
+    "haste": 15.0
+   }
+  },
+  "Winter's Approach": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Health",
+    "Mana",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "hp": 550.0,
+    "haste": 15.0
+   }
+  },
+  "Fimbulwinter": {
+   "acquisition": "transform",
+   "purchasable": false,
+   "isFinal": true,
+   "categories": [
+    "Health",
+    "Mana",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "hp": 550.0,
+    "haste": 15.0
+   }
+  },
+  "Executioner's Calling": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "Damage"
+   ],
+   "stats": {
+    "ad": 15.0
+   }
+  },
+  "Guinsoo's Rageblade": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Damage",
+    "AttackSpeed",
+    "SpellDamage",
+    "OnHit"
+   ],
+   "stats": {
+    "ad": 30.0,
+    "ap": 30.0,
+    "as": 25.0
+   }
+  },
+  "Caulfield's Warhammer": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "Damage",
+    "CooldownReduction",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "ad": 20.0,
+    "haste": 10.0
+   }
+  },
+  "Serrated Dirk": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "Damage",
+    "ArmorPenetration"
+   ],
+   "stats": {
+    "ad": 20.0
+   }
+  },
+  "Void Staff": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "MagicPenetration",
+    "SpellDamage"
+   ],
+   "stats": {
+    "ap": 95.0
+   }
+  },
+  "Cryptbloom": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "SpellDamage",
+    "MagicPenetration",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "ap": 75.0,
+    "haste": 20.0
+   }
+  },
+  "Mercurial Scimitar": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "SpellBlock",
+    "Damage",
+    "LifeSteal",
+    "Active",
+    "NonbootsMovement",
+    "Tenacity"
+   ],
+   "stats": {
+    "ad": 50.0,
+    "mr": 35.0
+   }
+  },
+  "Quicksilver Sash": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "Active",
+    "SpellBlock"
+   ],
+   "stats": {
+    "mr": 30.0
+   }
+  },
+  "Youmuu's Ghostblade": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Damage",
+    "Active",
+    "NonbootsMovement",
+    "ArmorPenetration"
+   ],
+   "stats": {
+    "ad": 55.0
+   }
+  },
+  "Randuin's Omen": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Health",
+    "Armor",
+    "Active",
+    "Slow"
+   ],
+   "stats": {
+    "hp": 350.0,
+    "armor": 75.0
+   }
+  },
+  "Scout's Slingshot": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "AttackSpeed"
+   ],
+   "stats": {
+    "as": 20.0
+   }
+  },
+  "Hextech Alternator": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "SpellDamage"
+   ],
+   "stats": {
+    "ap": 45.0
+   }
+  },
+  "Hextech Gunblade": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Damage",
+    "LifeSteal",
+    "SpellDamage",
+    "Active",
+    "SpellVamp"
+   ],
+   "stats": {
+    "ap": 80.0,
+    "ad": 40.0
+   }
+  },
+  "Haunting Guise": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "Health",
+    "SpellDamage"
+   ],
+   "stats": {
+    "ap": 30.0,
+    "hp": 200.0
+   }
+  },
+  "Hextech Rocketbelt": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Health",
+    "SpellDamage",
+    "Active",
+    "CooldownReduction",
+    "NonbootsMovement",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "ap": 60.0,
+    "hp": 350.0,
+    "haste": 10.0
+   }
+  },
+  "Blade of The Ruined King": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Damage",
+    "AttackSpeed",
+    "LifeSteal",
+    "Slow",
+    "OnHit"
+   ],
+   "stats": {
+    "ad": 40.0,
+    "as": 25.0
+   }
+  },
+  "Hexdrinker": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "Damage",
+    "SpellBlock"
+   ],
+   "stats": {
+    "ad": 25.0,
+    "mr": 25.0
+   }
+  },
+  "Maw of Malmortius": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "SpellBlock",
+    "Damage",
+    "LifeSteal",
+    "SpellVamp",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "ad": 60.0,
+    "haste": 15.0,
+    "mr": 40.0
+   }
+  },
+  "Zhonya's Hourglass": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Armor",
+    "SpellDamage",
+    "Active"
+   ],
+   "stats": {
+    "ap": 105.0,
+    "armor": 50.0
+   }
+  },
+  "Ionian Boots of Lucidity": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Boots",
+    "CooldownReduction"
+   ],
+   "stats": {
+    "haste": 10.0
+   }
+  },
+  "Spear of Shojin": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Health",
+    "Damage",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "ad": 45.0,
+    "hp": 450.0
+   }
+  },
+  "Morellonomicon": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Health",
+    "SpellDamage",
+    "CooldownReduction",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "ap": 75.0,
+    "hp": 350.0,
+    "haste": 15.0
+   }
+  },
+  "Guardian's Blade": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "Health",
+    "Damage",
+    "Lane",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "ad": 30.0,
+    "hp": 150.0,
+    "haste": 15.0
+   }
+  },
+  "Umbral Glaive": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "Damage",
+    "Vision",
+    "CooldownReduction",
+    "ArmorPenetration",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "ad": 60.0,
+    "haste": 15.0
+   }
+  },
+  "Hullbreaker": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Health",
+    "Damage",
+    "NonbootsMovement"
+   ],
+   "stats": {
+    "ad": 40.0,
+    "hp": 500.0
+   }
+  },
+  "Guardian's Hammer": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "Health",
+    "Damage",
+    "LifeSteal",
+    "Lane"
+   ],
+   "stats": {
+    "ad": 25.0,
+    "hp": 150.0
+   }
+  },
+  "Locket of the Iron Solari": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Health",
+    "SpellBlock",
+    "Armor",
+    "Aura",
+    "Active",
+    "MagicResist",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "hp": 200.0,
+    "armor": 30.0,
+    "mr": 30.0,
+    "haste": 10.0
+   }
+  },
+  "Spectre's Cowl": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "Health",
+    "HealthRegen",
+    "SpellBlock"
+   ],
+   "stats": {
+    "hp": 200.0,
+    "mr": 35.0
+   }
+  },
+  "Mikael's Blessing": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Health",
+    "ManaRegen",
+    "Active",
+    "CooldownReduction",
+    "Tenacity",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "hp": 250.0,
+    "haste": 15.0
+   }
+  },
+  "Terminus": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Damage",
+    "AttackSpeed",
+    "OnHit",
+    "MagicPenetration",
+    "ArmorPenetration"
+   ],
+   "stats": {
+    "ad": 30.0,
+    "as": 35.0
+   }
+  },
+  "Ardent Censer": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "AttackSpeed",
+    "SpellDamage",
+    "ManaRegen",
+    "NonbootsMovement"
+   ],
+   "stats": {
+    "ap": 45.0
+   }
+  },
+  "Essence Reaver": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Damage",
+    "CriticalStrike",
+    "ManaRegen",
+    "CooldownReduction",
+    "OnHit",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "ad": 50.0,
+    "haste": 20.0,
+    "crit": 25.0
+   }
+  },
+  "Dead Man's Plate": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Health",
+    "Armor",
+    "Slow",
+    "NonbootsMovement"
+   ],
+   "stats": {
+    "hp": 350.0,
+    "armor": 55.0
+   }
+  },
+  "Titanic Hydra": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Health",
+    "HealthRegen",
+    "Damage",
+    "OnHit"
+   ],
+   "stats": {
+    "ad": 40.0,
+    "hp": 600.0
+   }
+  },
+  "Crystalline Bracer": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "Health",
+    "HealthRegen"
+   ],
+   "stats": {
+    "hp": 200.0
+   }
+  },
+  "Lost Chapter": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "SpellDamage",
+    "Mana",
+    "ManaRegen",
+    "CooldownReduction",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "ap": 40.0,
+    "haste": 10.0
+   }
+  },
+  "Catalyst of Aeons": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "Health",
+    "HealthRegen",
+    "Mana",
+    "ManaRegen"
+   ],
+   "stats": {
+    "hp": 300.0
+   }
+  },
+  "Edge of Night": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Health",
+    "Damage",
+    "ArmorPenetration"
+   ],
+   "stats": {
+    "ad": 50.0,
+    "hp": 250.0
+   }
+  },
+  "Oblivion Orb": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "SpellDamage"
+   ],
+   "stats": {
+    "ap": 25.0
+   }
+  },
+  "Lifeline": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "Damage",
+    "NonbootsMovement",
+    "ArmorPenetration"
+   ],
+   "stats": {
+    "ad": 25.0
+   }
+  },
+  "Spectral Cutlass": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Damage",
+    "NonbootsMovement",
+    "ArmorPenetration"
+   ],
+   "stats": {
+    "ad": 50.0
+   }
+  },
+  "Imperial Mandate": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "SpellDamage",
+    "ManaRegen",
+    "CooldownReduction",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "ap": 60.0,
+    "haste": 15.0
+   }
+  },
+  "Force of Nature": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Health",
+    "SpellBlock",
+    "NonbootsMovement"
+   ],
+   "stats": {
+    "hp": 400.0,
+    "mr": 55.0
+   }
+  },
+  "Horizon Focus": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "SpellDamage",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "ap": 75.0,
+    "haste": 25.0
+   }
+  },
+  "Cosmic Drive": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Health",
+    "SpellDamage",
+    "NonbootsMovement",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "ap": 70.0,
+    "hp": 350.0,
+    "haste": 25.0
+   }
+  },
+  "Blighting Jewel": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "MagicPenetration",
+    "SpellDamage"
+   ],
+   "stats": {
+    "ap": 25.0
+   }
+  },
+  "Verdant Barrier": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "SpellBlock",
+    "SpellDamage"
+   ],
+   "stats": {
+    "ap": 40.0,
+    "mr": 25.0
+   }
+  },
+  "Riftmaker": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Health",
+    "SpellDamage",
+    "CooldownReduction",
+    "SpellVamp"
+   ],
+   "stats": {
+    "ap": 70.0,
+    "hp": 350.0,
+    "haste": 15.0
+   }
+  },
+  "Bandleglass Mirror": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "SpellDamage",
+    "ManaRegen",
+    "CooldownReduction",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "ap": 20.0,
+    "haste": 10.0
+   }
+  },
+  "Shadowflame": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "SpellDamage",
+    "MagicPenetration"
+   ],
+   "stats": {
+    "ap": 110.0
+   }
+  },
+  "Stormsurge": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "SpellDamage",
+    "GoldPer",
+    "NonbootsMovement",
+    "MagicPenetration"
+   ],
+   "stats": {
+    "ap": 90.0
+   }
+  },
+  "Stat Bonus": {
+   "acquisition": "conditional",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "Health",
+    "SpellBlock",
+    "Armor",
+    "Damage",
+    "CriticalStrike",
+    "AttackSpeed",
+    "SpellDamage",
+    "Mana",
+    "Consumable",
+    "CooldownReduction",
+    "SpellVamp",
+    "NonbootsMovement",
+    "Tenacity",
+    "MagicPenetration",
+    "ArmorPenetration",
+    "MagicResist",
+    "AbilityHaste"
+   ],
+   "stats": {}
+  },
+  "Death's Dance": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Armor",
+    "Damage",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "ad": 60.0,
+    "armor": 50.0,
+    "haste": 15.0
+   }
+  },
+  "Chempunk Chainsword": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Health",
+    "Damage",
+    "CooldownReduction",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "ad": 45.0,
+    "hp": 450.0,
+    "haste": 15.0
+   }
+  },
+  "Sundered Sky": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Health",
+    "Damage",
+    "CooldownReduction",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "ad": 40.0,
+    "hp": 400.0,
+    "haste": 10.0
+   }
+  },
+  "Staff of Flowing Water": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "SpellDamage",
+    "ManaRegen",
+    "CooldownReduction",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "ap": 35.0,
+    "haste": 10.0
+   }
+  },
+  "Moonstone Renewer": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Health",
+    "SpellDamage",
+    "ManaRegen",
+    "CooldownReduction",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "ap": 25.0,
+    "hp": 200.0,
+    "haste": 20.0
+   }
+  },
+  "Echoes of Helia": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Health",
+    "SpellDamage",
+    "ManaRegen",
+    "CooldownReduction",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "ap": 35.0,
+    "hp": 200.0,
+    "haste": 20.0
+   }
+  },
+  "Dawncore": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "SpellDamage",
+    "ManaRegen"
+   ],
+   "stats": {
+    "ap": 45.0
+   }
+  },
+  "Stridebreaker": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Health",
+    "Damage",
+    "AttackSpeed",
+    "Slow"
+   ],
+   "stats": {
+    "ad": 40.0,
+    "as": 25.0,
+    "hp": 450.0
+   }
+  },
+  "Liandry's Torment": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Health",
+    "SpellDamage"
+   ],
+   "stats": {
+    "ap": 60.0,
+    "hp": 300.0
+   }
+  },
+  "Luden's Echo": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "SpellDamage",
+    "Mana",
+    "CooldownReduction",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "ap": 100.0,
+    "haste": 10.0
+   }
+  },
+  "Rod of Ages": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Health",
+    "HealthRegen",
+    "SpellDamage",
+    "Mana",
+    "ManaRegen"
+   ],
+   "stats": {
+    "ap": 45.0,
+    "hp": 350.0
+   }
+  },
+  "Bami's Cinder": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "Health",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "hp": 150.0,
+    "haste": 5.0
+   }
+  },
+  "Iceborn Gauntlet": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Health",
+    "Armor",
+    "CooldownReduction",
+    "Slow",
+    "OnHit",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "hp": 300.0,
+    "armor": 50.0,
+    "haste": 15.0
+   }
+  },
+  "Hollow Radiance": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Health",
+    "SpellBlock",
+    "HealthRegen",
+    "Aura",
+    "MagicResist",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "hp": 400.0,
+    "mr": 40.0,
+    "haste": 10.0
+   }
+  },
+  "Jak'Sho, The Protean": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Health",
+    "SpellBlock",
+    "Armor",
+    "MagicResist"
+   ],
+   "stats": {
+    "hp": 350.0,
+    "armor": 45.0,
+    "mr": 45.0
+   }
+  },
+  "Noonquiver": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "Damage",
+    "CriticalStrike"
+   ],
+   "stats": {
+    "ad": 15.0,
+    "crit": 20.0
+   }
+  },
+  "Kraken Slayer": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Damage",
+    "AttackSpeed",
+    "OnHit",
+    "NonbootsMovement"
+   ],
+   "stats": {
+    "ad": 45.0,
+    "as": 40.0
+   }
+  },
+  "Immortal Shieldbow": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Damage",
+    "CriticalStrike"
+   ],
+   "stats": {
+    "ad": 55.0,
+    "crit": 25.0
+   }
+  },
+  "Navori Flickerblade": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "CriticalStrike",
+    "AttackSpeed",
+    "NonbootsMovement"
+   ],
+   "stats": {
+    "as": 40.0,
+    "crit": 25.0
+   }
+  },
+  "The Collector": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Damage",
+    "CriticalStrike",
+    "ArmorPenetration"
+   ],
+   "stats": {
+    "ad": 50.0,
+    "crit": 25.0
+   }
+  },
+  "Rectrix": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": false,
+   "categories": [
+    "Damage",
+    "NonbootsMovement"
+   ],
+   "stats": {
+    "ad": 15.0
+   }
+  },
+  "Eclipse": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Damage",
+    "CooldownReduction",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "ad": 60.0,
+    "haste": 15.0
+   }
+  },
+  "Serylda's Grudge": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Damage",
+    "CooldownReduction",
+    "ArmorPenetration",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "ad": 45.0,
+    "haste": 15.0
+   }
+  },
+  "Serpent's Fang": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Damage",
+    "ArmorPenetration"
+   ],
+   "stats": {
+    "ad": 55.0
+   }
+  },
+  "Axiom Arc": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Damage",
+    "ArmorPenetration",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "ad": 55.0,
+    "haste": 20.0
+   }
+  },
+  "Profane Hydra": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Damage",
+    "Active",
+    "CooldownReduction",
+    "ArmorPenetration",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "ad": 55.0,
+    "haste": 10.0
+   }
+  },
+  "Voltaic Cyclosword": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Damage",
+    "Active",
+    "CooldownReduction",
+    "ArmorPenetration",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "ad": 55.0,
+    "haste": 10.0
+   }
+  },
+  "Bloodletter's Curse": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Health",
+    "SpellDamage",
+    "CooldownReduction",
+    "MagicPenetration"
+   ],
+   "stats": {
+    "ap": 65.0,
+    "hp": 400.0,
+    "haste": 15.0
+   }
+  },
+  "Abyssal Mask": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Health",
+    "SpellBlock",
+    "CooldownReduction",
+    "MagicResist",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "hp": 350.0,
+    "mr": 45.0,
+    "haste": 15.0
+   }
+  },
+  "Rite of Ruin": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "CriticalStrike",
+    "SpellDamage",
+    "CooldownReduction",
+    "NonbootsMovement"
+   ],
+   "stats": {
+    "ap": 55.0,
+    "haste": 10.0,
+    "crit": 25.0
+   }
+  },
+  "Sword of Blossoming Dawn": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Health",
+    "SpellDamage",
+    "CooldownReduction",
+    "OnHit",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "ap": 45.0,
+    "hp": 200.0,
+    "haste": 15.0
+   }
+  },
+  "Hubris": {
+   "acquisition": "shop",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Damage",
+    "Active",
+    "CooldownReduction",
+    "ArmorPenetration",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "ad": 55.0,
+    "haste": 10.0
+   }
+  },
+  "Void Immolation": {
+   "acquisition": "conditional",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Health",
+    "SpellBlock",
+    "HealthRegen",
+    "Armor",
+    "Aura",
+    "CooldownReduction",
+    "MagicResist",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "hp": 1000.0,
+    "armor": 100.0,
+    "mr": 80.0,
+    "haste": 25.0
+   }
+  },
+  "Ultra Hydra": {
+   "acquisition": "conditional",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Damage",
+    "LifeSteal",
+    "AbilityHaste"
+   ],
+   "stats": {
+    "ad": 200.0,
+    "haste": 25.0,
+    "hp": 1000.0
+   }
+  },
+  "Wooglet's Witchcap": {
+   "acquisition": "conditional",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Armor",
+    "SpellDamage",
+    "Active"
+   ],
+   "stats": {}
+  },
+  "Golden Spatula": {
+   "acquisition": "conditional",
+   "purchasable": true,
+   "isFinal": true,
+   "categories": [
+    "Health",
+    "SpellBlock",
+    "HealthRegen",
+    "Armor",
+    "Damage",
+    "CriticalStrike",
+    "AttackSpeed",
+    "LifeSteal",
+    "SpellDamage",
+    "Mana",
+    "ManaRegen",
+    "CooldownReduction",
+    "NonbootsMovement"
+   ],
+   "stats": {
+    "ad": 90.0,
+    "ap": 110.0,
+    "as": 40.0,
+    "crit": 15.0,
+    "hp": 200.0,
+    "armor": 20.0,
+    "mr": 20.0,
+    "haste": 20.0
+   }
+  }
+ }
+}

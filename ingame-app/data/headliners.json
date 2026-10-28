@@ -1,34 +1,34 @@
 {
  "K/DA": {
-  "effect": "Aduna 4 K/DA Cards si primesti un augment in plus.",
-  "tip": "Un augment in plus valoreaza mai mult la campionii de scalare: aduna cardurile."
+  "effect": "Collect 4 K/DA Cards to gain an extra augment.",
+  "tip": "An extra augment is more valuable on scaling champions: collect the cards."
  },
  "HEARTSTEEL": {
-  "effect": "Augmentele pot veni cu modificatori unici care le fac mai puternice.",
-  "tip": "Citeste modificatorul inainte sa alegi: poate ridica un augment mai slab peste unul clasat mai sus."
+  "effect": "Augments can have unique modifiers that make them stronger.",
+  "tip": "Read the modifier before choosing: it can make a lower-tier augment better than a higher-tier one."
  },
  "True Damage": {
-  "effect": "Takedown-urile si turnurile distruse pot lasa Anvils pentru echipa.",
-  "tip": "Lupte devreme si presiune pe turnuri aduc Stat Anvil: joaca pentru takedown-uri."
+  "effect": "Takedowns and destroyed towers can drop Anvils for the team.",
+  "tip": "Early fights and tower pressure bring Stat Anvils: play for takedowns."
  },
  "Pentakill": {
-  "effect": "Una din abilitatile tale devine mai puternica la inceputul meciului si din nou la nivelul 18.",
-  "tip": "Alege abilitatea cu care faci damage sau controlezi cel mai des."
+  "effect": "One of your abilities becomes stronger at the start of the match and again at level 18.",
+  "tip": "Choose the ability you use most often for damage or crowd control."
  },
  "Disco": {
-  "effect": "Danseaza sub discoball ca sa dai aur intregii echipe.",
-  "tip": "Aur pentru toti: nu lasa discoball-ul necules cand e liber."
+  "effect": "Dance under the disco ball to grant gold to your entire team.",
+  "tip": "Gold for everyone: use the disco ball when it is safe."
  },
  "Cafe Cuties": {
-  "effect": "Relicvele de viata sunt mult mai puternice.",
-  "tip": "Culege relicvele de viata cand te lupti prelungit; vindecarea conteaza mai mult."
+  "effect": "Health relics are much stronger.",
+  "tip": "Collect health relics during extended fights; their healing matters more."
  },
  "Bees": {
-  "effect": "Aduna vasele cu miere si evita albinele care zboara pe harta.",
-  "tip": "Nu sta in calea albinelor in lupta; mierea merita luata cand e sigur."
+  "effect": "Collect honey pots and avoid the bees flying around the map.",
+  "tip": "Avoid bees during fights; collect honey when it is safe."
  },
  "Command Line": {
-  "effect": "La fiecare selectie poti face reroll la un augment ca sa fie de tier mai mare.",
-  "tip": "Foloseste reroll-ul pe slotul de care depinde campionul tau, nu pe unul de umplutura."
+  "effect": "At each selection, you can reroll an augment into a higher-tier one.",
+  "tip": "Use the reroll on the slot your champion depends on rather than a filler slot."
  }
 }

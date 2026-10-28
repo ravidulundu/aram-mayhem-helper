@@ -29,7 +29,7 @@ def main():
     items = fetch_json(ITEMS.format(v=version))["data"]
 
     sprites = {}
-    for item_id, item in items.items():
+    for item in items.values():
         img = item.get("image") or {}
         sprite, x, y = img.get("sprite"), img.get("x"), img.get("y")
         name = item.get("name")
@@ -39,8 +39,9 @@ def main():
         key = sprite.rsplit(".", 1)[0]
         sprites.setdefault(key, {})[f"{x},{y}"] = name
 
-    OUT.write_text(json.dumps(sprites, indent=0, ensure_ascii=False, sort_keys=True),
-                   encoding="utf-8")
+    OUT.write_text(
+        json.dumps(sprites, indent=0, ensure_ascii=False, sort_keys=True), encoding="utf-8"
+    )
 
     total = sum(len(v) for v in sprites.values())
     print(f"Data Dragon {version}: {total} itemi in {len(sprites)} sprite-uri -> {OUT.name}")

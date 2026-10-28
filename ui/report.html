@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="ro">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src aram: data:; font-src aram:">
-<title>Raporteaza un bug</title>
+<title>Report a bug</title>
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="report.css">
 </head>
@@ -11,22 +11,22 @@
 <div id="panel" class="client report">
   <div class="bg"></div>
   <header>
-    <span id="title">RAPORTEAZA UN BUG</span>
+    <span id="title">REPORT A BUG</span>
     <span class="grow"></span>
     <button id="close" class="btn">X</button>
   </header>
   <div class="rule"></div>
   <form id="form">
-    <label for="desc">CE S-A INTAMPLAT?</label>
+    <label for="desc">WHAT HAPPENED?</label>
     <textarea id="desc" rows="6" maxlength="2000" spellcheck="false"></textarea>
-    <label for="email">EMAIL (OPTIONAL, DACA VREI RASPUNS)</label>
+    <label for="email">EMAIL (OPTIONAL, FOR A REPLY)</label>
     <input id="email" type="email" maxlength="200" spellcheck="false" autocomplete="email">
-    <label class="check"><input id="include" type="checkbox" checked> Include diagnostic (vezi mai jos ce trimiti)</label>
+    <label class="check"><input id="include" type="checkbox" checked> Include diagnostics (review what will be sent below)</label>
     <pre id="diag"></pre>
     <p id="result" role="status"></p>
     <div class="actions">
-      <button id="mail" type="button" class="link" hidden>DESCHIDE EMAIL</button>
-      <button id="send" type="submit" class="primary">TRIMITE</button>
+      <button id="mail" type="button" class="link" hidden>OPEN EMAIL</button>
+      <button id="send" type="submit" class="primary">SEND</button>
     </div>
   </form>
   <div class="frame"></div>

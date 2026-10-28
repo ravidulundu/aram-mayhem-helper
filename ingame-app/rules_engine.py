@@ -1,10 +1,8 @@
-"""Motorul de reguli pentru evidentierea itemilor pe baza compozitiei.
+"""Mayhem item planning from champion builds, legal shop counters and augment evidence.
 
-Euristici scrise de mana, nu date reale de matchup -- nicio sursa nu publica
-build-uri de ARAM conditionate de compozitia inamica. Regulile doar
-*evidentiaza* itemi deja prezenti in pool-ul campionului, nu inventeaza.
-Port direct din overwolf-app/lib/logic.js (evaluateRules), pastrat identic
-ca sa nu diveraga cele doua implementari.
+Counter expansion uses patch-matched shop metadata and the active item build
+profile. It preserves inventory, quest, range and exclusive-group constraints.
+Rules are heuristics, not a simulation of combat or an optimal-win guarantee.
 """
 
 
@@ -33,8 +31,7 @@ def owned_keys(own_items, item_stats=None):
         changed = False
         for name, st in stats.items():
             key = item_key(name)
-            if key not in keys and any(item_key(e) in keys
-                                       for e in st.get("evolves_into") or ()):
+            if key not in keys and any(item_key(e) in keys for e in st.get("evolves_into") or ()):
                 keys.add(key)
                 changed = True
     return keys
@@ -63,8 +60,7 @@ def matches_condition(cond, roster, champion_tags, item_stats=None, categories=N
         lacks = cond.get("allyLacksCategory")
         if lacks:
             wanted = {n.lower() for n in (categories or {}).get(lacks, [])}
-            if any(name.lower() in wanted
-                   for name in (roster.get("ally_items") or [])):
+            if any(name.lower() in wanted for name in (roster.get("ally_items") or [])):
                 return False
         return True
 
@@ -90,10 +86,19 @@ def evaluate_rules(roster, champion_tags, rule_set, item_pool, item_stats=None):
     seen = set()
 
     for rule in rule_set.get("rules", []):
-        if not matches_condition(rule["condition"], roster, champion_tags,
-                                 item_stats, rule_set.get("categories")):
+        if rule["suggestCategory"] == "grievous_wounds":
+            antiheal = {
+                item_key(n) for n in rule_set.get("categories", {}).get("grievous_wounds", [])
+            }
+            if any(item_key(n) in antiheal for n in roster.get("ally_items") or ()):
+                continue
+        if not matches_condition(
+            rule["condition"], roster, champion_tags, item_stats, rule_set.get("categories")
+        ):
             continue
-        keywords = {k.lower() for k in rule_set.get("categories", {}).get(rule["suggestCategory"], [])}
+        keywords = {
+            k.lower() for k in rule_set.get("categories", {}).get(rule["suggestCategory"], [])
+        }
         for item in pool:
             if item.lower() in keywords and item not in seen:
                 seen.add(item)
@@ -117,11 +122,11 @@ def required_items(taken_augments, augment_items):
     return out
 
 
-RANGED_FROM = 300      # raza de atac de la care un campion e ranged
+RANGED_FROM = 300  # raza de atac de la care un campion e ranged
 
 
 def current_range(champion, taken_augments, extra):
-    """"melee" sau "ranged": raza de baza a campionului, schimbata de augmentele luate.
+    """ "melee" sau "ranged": raza de baza a campionului, schimbata de augmentele luate.
 
     Draw Your Sword te face melee, iar apoi Runaan's Hurricane ("Must be
     Ranged") nu se mai poate cumpara -- recomandarea lui devine o capcana.
@@ -162,35 +167,49 @@ def implied_augment(champion, taken_augments, extra):
 
 
 def augment_scores(taken_augments, extra):
-    """{item: (win rate %, augment)}: cat de bine merge itemul CU augmentele luate.
+    """{item: (win rate %, contributing augment names)}: cat de bine merge itemul CU augmentele luate.
 
     Din statisticile de Mayhem "item | augment" pe campionul asta. Cu mai multe
     augmente luate, se face media peste cele care au date pentru item.
     """
     table, names = extra.get("aug_table") or {}, extra.get("item_names") or {}
+    samples = extra.get("aug_samples") or {}
     per_item = {}
     for aug in taken_augments or ():
-        for item_id, wr, _pr in table.get(aug, []):
+        for row in table.get(aug, []):
+            item_id, wr, _pr = row[:3]
+            weight = (samples.get(aug) or {}).get(str(item_id), 1)
             name = names.get(str(item_id))
-            if name:
-                per_item.setdefault(name, []).append((wr / 10.0, aug))
-    return {n: (sum(w for w, _ in v) / len(v), v[-1][1]) for n, v in per_item.items()}
+            if name and weight > 0:
+                per_item.setdefault(name, []).append((wr / 10.0, aug, weight))
+    return {
+        n: (
+            sum(w * count for w, _, count in v) / sum(count for _, _, count in v),
+            tuple(dict.fromkeys(aug for _, aug, _ in v)),
+        )
+        for n, v in per_item.items()
+    }
 
 
-def resolve_build(build, roster, champion_tags, rule_set, item_stats=None,
-                  taken_augments=None, augment_items=None, extra=None):
-    """Un singur item pe slotul 4/5/6 -- build final, nu meniu de alternative.
+def resolve_build(
+    build,
+    roster,
+    champion_tags,
+    rule_set,
+    item_stats=None,
+    taken_augments=None,
+    augment_items=None,
+    extra=None,
+):
+    """Combine the prepared build with compatible situational counter-items.
 
-    u.gg da 2-3 optiuni per slot situational; alegem una singura per slot,
-    prioritizand orice optiune care se potriveste cu o regula de compozitie
-    (evaluate_rules) si care nu e deja folosita intr-un slot anterior. Fara
-    potrivire, cade pe prima optiune neutilizata din ordinea data de u.gg.
-
-    Itemii ceruti de augmentele luate sar peste tot: build-ul de pe u.gg nu
-    stie ce augment ai ales, iar un "Upgrade X" fara X e pur si simplu pierdut.
+    Required augment items take priority. Situational counters precede remaining
+    ordinary purchases after the first core item. Conditional augment statistics
+    and source order rank ordinary options; all targets share legality checks.
     """
     extra = extra or {}
     stats = item_stats or {}
+    catalog = extra.get("item_catalog") or {}
     rng = current_range(roster.get("local_champion"), taken_augments, extra)
 
     def fits(name):
@@ -203,20 +222,37 @@ def resolve_build(build, roster, champion_tags, rule_set, item_stats=None,
     # ponytail: fara retete, o componenta din grup nu blocheaza nimic; cu "from"
     # din Data Dragon am putea prinde si cazul ala.
     groups = extra.get("item_groups") or {}
-    taken_groups = {g for n in roster.get("own_items") or ()
-                    if n != "Boots" and not (stats.get(n) or {}).get("component")
-                    for g in groups.get(n) or ()}
+    taken_groups = {
+        g
+        for n in roster.get("own_items") or ()
+        if n != "Boots" and not (stats.get(n) or {}).get("component")
+        for g in groups.get(n) or ()
+    }
 
     have = owned_keys(roster.get("own_items"), item_stats)
     # Ultra Hydra cere Titanic + Ravenous + Profane, desi sunt din acelasi grup
     # exclusiv: itemele unui quest nu se blocheaza intre ele.
-    quest = {item_key(n) for a in taken_augments or ()
-             for n in ((extra.get("effects") or {}).get(a) or {}).get("needs") or ()}
+    quest = {
+        item_key(n)
+        for a in taken_augments or ()
+        for n in ((extra.get("effects") or {}).get(a) or {}).get("needs") or ()
+    }
 
     def ok(name):
+        item = catalog.get(name)
+        if (
+            item
+            and item_key(name) not in have
+            and item_key(name) not in quest
+            and (not item.get("purchasable") or item.get("acquisition") != "shop")
+        ):
+            return False
         # ce ai deja ramane ok, altfel l-ar bloca propriul grup si ar parea de vandut
-        return fits(name) and (item_key(name) in have or item_key(name) in quest
-                               or not taken_groups & set(groups.get(name) or ()))
+        return fits(name) and (
+            item_key(name) in have
+            or item_key(name) in quest
+            or not taken_groups & set(groups.get(name) or ())
+        )
 
     # itemele indisponibile (ex. Runaan's dupa Draw Your Sword) nu mai apar
     # nicaieri; in lista "Indisponibil" doar cele de range, ca motivul sa fie corect
@@ -224,9 +260,16 @@ def resolve_build(build, roster, champion_tags, rule_set, item_stats=None,
     core = [c for c in (build.get("core") or []) if ok(c)]
     lost = len(build.get("core") or []) - len(core)
     scores = augment_scores(taken_augments, extra)
-    hot = {h["item"]: h["reason"]
-           for h in evaluate_rules(roster, champion_tags, rule_set,
-                                   [p for p in build.get("pool") or [] if ok(p)], item_stats)}
+    expanded = []
+    if catalog:
+        from item_candidates import counter_pool
+
+        expanded = counter_pool(
+            build, roster, champion_tags, catalog, extra.get("effects") or {}, taken_augments, stats
+        )
+    pool = list(dict.fromkeys(expanded + list(build.get("pool") or [])))
+    hits = evaluate_rules(roster, champion_tags, rule_set, [p for p in pool if ok(p)], item_stats)
+    hot = {h["item"]: h["reason"] for h in hits}
 
     owned = owned_keys(roster.get("own_items"), item_stats)
     effects = [((extra.get("effects") or {}).get(a) or {}, a) for a in taken_augments or ()]
@@ -241,10 +284,9 @@ def resolve_build(build, roster, champion_tags, rule_set, item_stats=None,
         # Time Warp: Heartsteel: il primesti gratis mai tarziu, nu-l cumperi
         owned |= {item_key(n) for n in eff.get("later") or ()}
 
-    needed = [(n, "cerut de augment") for n in required_items(taken_augments, augment_items)]
+    needed = [(n, "required by augment") for n in required_items(taken_augments, augment_items)]
     for eff, aug in effects:
-        why = (f"{aug}: se unesc in {eff['combine']}" if eff.get("combine")
-               else f"quest {aug}")
+        why = f"{aug}: combines into {eff['combine']}" if eff.get("combine") else f"quest {aug}"
         needed += [(n, why) for n in eff.get("needs") or ()]
         # "Upgrade Immolate": oricare din Sunfire Aegis / Hollow Radiance. Daca
         # n-ai niciunul, primul care incape, preferat cel din build-ul tau.
@@ -253,37 +295,72 @@ def resolve_build(build, roster, champion_tags, rule_set, item_stats=None,
             pool = {item_key(p) for p in build.get("pool") or []}
             free = sorted((n for n in anyof if ok(n)), key=lambda n: item_key(n) not in pool)
             if free:
-                needed.append((free[0], f"cerut de {aug}"))
+                needed.append((free[0], f"required by {aug}"))
         if eff.get("stack"):
-            needed.append((eff["stack"], f"{aug}: se cumuleaza"))
+            needed.append((eff["stack"], f"{aug}: allows stacking"))
     seen = set()
-    needed = [(n, why) for n, why in needed
-              if item_key(n) not in owned and ok(n)
-              and not (item_key(n) in seen or seen.add(item_key(n)))]
+    needed = [
+        (n, why)
+        for n, why in needed
+        if item_key(n) not in owned and ok(n) and not (item_key(n) in seen or seen.add(item_key(n)))
+    ]
 
     def finished(name):
         st = stats.get(name) or {}
         return not (st.get("boots") or st.get("component") or st.get("consumable"))
 
-    used = set(core)
+    used = set()
+
+    def can_plan(name):
+        return not any(
+            item_key(name) != item_key(other)
+            and not (item_key(name) in quest and item_key(other) in quest)
+            and set(groups.get(name) or ()) & set(groups.get(other) or ())
+            for other in used
+        )
+
+    reserved = []
+    for name, why in needed:
+        if can_plan(name):
+            used.add(name)
+            reserved.append((name, why))
+    needed = reserved
+    compatible_core = []
+    for name in core:
+        if can_plan(name):
+            used.add(name)
+            compatible_core.append(name)
+    lost += len(core) - len(compatible_core)
+    core = compatible_core
     picks = []
 
     def pick(candidates):
         """Un item din lista: regula de compozitie, apoi cel mai bun cu augmentele
         tale, apoi ordinea build-ului."""
-        free = [c for c in candidates if c not in used]
+        free = [c for c in candidates if c not in used and can_plan(c)]
         chosen = next((c for c in free if c in hot), None)
         if chosen is None and scores:
             # si itemele bune CU augmentul tau, chiar daca nu erau in lista slotului
-            extra_items = [n for n in scores if n not in used and ok(n) and finished(n)]
-            best = max(set(free) | set(extra_items), key=lambda n: scores.get(n, (0, ""))[0],
-                       default=None)
+            extra_items = [
+                n for n in scores if n not in used and ok(n) and finished(n) and can_plan(n)
+            ]
+            best = max(
+                dict.fromkeys(free + extra_items),
+                key=lambda n: scores.get(n, (0, ""))[0],
+                default=None,
+            )
             if best is not None and best in scores:
                 chosen = best
         if chosen is None and likes:
             # augment on-hit/crit: dintre optiunile slotului, cea care il hraneste
-            chosen = next((c for c in free if likes & {k for k in ("onhit", "crit")
-                                                       if (stats.get(c) or {}).get(k)}), None)
+            chosen = next(
+                (
+                    c
+                    for c in free
+                    if likes & {k for k in ("onhit", "crit") if (stats.get(c) or {}).get(k)}
+                ),
+                None,
+            )
         if chosen is None and free:
             chosen = free[0]
         if chosen is None:
@@ -291,11 +368,61 @@ def resolve_build(build, roster, champion_tags, rule_set, item_stats=None,
         used.add(chosen)
         reason = hot.get(chosen)
         if reason is None and chosen in scores:
-            wr, aug = scores[chosen]
-            reason = f"{wr:.0f}% WR cu {aug}"
-        if reason is None and likes & {k for k in ("onhit", "crit") if (stats.get(chosen) or {}).get(k)}:
-            reason = "on-hit pentru augment" if "onhit" in likes else "crit pentru augment"
+            wr, augments = scores[chosen]
+            reason = (
+                f"{wr:.0f}% WR with {augments[0]}"
+                if len(augments) == 1
+                else f"{wr:.1f}% historical WR average across {len(augments)} augments "
+                f"({'; '.join(augments)})"
+            )
+        if reason is None and likes & {
+            k for k in ("onhit", "crit") if (stats.get(chosen) or {}).get(k)
+        }:
+            reason = "on-hit for augment" if "onhit" in likes else "crit for augment"
         return {"item": chosen, "reason": reason, "owned": item_key(chosen) in owned}
+
+    reactive = []
+    if catalog:
+        categories = rule_set.get("categories") or {}
+        rule_categories = {r["id"]: r["suggestCategory"] for r in rule_set.get("rules", [])}
+        covered = {
+            category
+            for category, names in categories.items()
+            if any(
+                item_key(n) in have
+                and (
+                    category == "grievous_wounds"
+                    or catalog.get(n, {}).get("isFinal")
+                    and not (stats.get(n) or {}).get("boots")
+                )
+                for n in names
+            )
+        }
+        covered.update(
+            category
+            for category, names in categories.items()
+            if any(item_key(n) in {item_key(k) for k, _ in needed} for n in names)
+        )
+        for hit in hits:
+            name, category = hit["item"], rule_categories[hit["rule"]]
+            if category in covered or item_key(name) in owned or not can_plan(name):
+                continue
+            if name not in used:
+                used.add(name)
+            reactive.append({"item": name, "owned": False, "reason": hit["reason"]})
+            covered.update(
+                c
+                for c, names in categories.items()
+                if item_key(name) in {item_key(n) for n in names}
+            )
+        selected = {e["item"] for e in reactive}
+        hot = {
+            h["item"]: h["reason"]
+            for h in hits
+            if h["item"] in selected
+            or item_key(h["item"]) in have
+            or rule_categories[h["rule"]] not in covered
+        }
 
     for slot in ("fourth", "fifth", "sixth"):
         candidates = [c for c in (build.get(slot) or []) if ok(c)]
@@ -319,17 +446,59 @@ def resolve_build(build, roster, champion_tags, rule_set, item_stats=None,
         picks = [e for e in picks if item_key(e["item"]) != key]
         forced.append({"item": name, "owned": False, "reason": why})
     # itemele de quest deja cumparate raman in lista, bifate: se vede progresul (1/3)
-    done = [{"item": n, "owned": True, "reason": f"quest {aug}"}
-            for eff, aug in effects if not eff.get("combine")
-            for n in eff.get("needs") or () if item_key(n) in owned]
-    core_entries = [e for e in core_entries if item_key(e["item"]) not in {item_key(d["item"]) for d in done}]
+    done = [
+        {"item": n, "owned": True, "reason": f"quest {aug}"}
+        for eff, aug in effects
+        if not eff.get("combine")
+        for n in eff.get("needs") or ()
+        if item_key(n) in owned
+    ]
+    core_entries = [
+        e for e in core_entries if item_key(e["item"]) not in {item_key(d["item"]) for d in done}
+    ]
     core_entries = done + forced + core_entries
+    if catalog:
+        reactive_keys = {item_key(e["item"]) for e in reactive}
+        ordinary = [
+            e
+            for e in core_entries[len(done) + len(forced) :]
+            if item_key(e["item"]) not in reactive_keys
+        ]
+        represented = owned_keys([e["item"] for e in done + ordinary + picks if e["owned"]], stats)
+        for name in slot_items(roster.get("own_items"), stats):
+            if catalog.get(name, {}).get("isFinal") and not owned_keys([name], stats) & represented:
+                ordinary.insert(0, {"item": name, "owned": True})
+                represented |= owned_keys([name], stats)
+        # Keep the first ordinary core purchase before situational spending at game start.
+        anchor = (
+            ordinary[:1] if not any(e["owned"] for e in ordinary + picks) and not forced else []
+        )
+        core_entries = done + forced + anchor + reactive + ordinary[len(anchor) :]
     # itemul care se cumuleaza (Don't Stop Cleavin'): dupa primul, inca unul
     # la coada build-ului, ca sa nu ramana sloturi "terminate" degeaba
     for eff, aug in effects:
         if eff.get("stack") and item_key(eff["stack"]) in owned:
-            picks.append({"item": eff["stack"], "owned": False,
-                          "reason": f"inca unul: {aug} il cumuleaza"})
+            name = eff["stack"]
+            count = sum(item_key(n) == item_key(name) for n in roster.get("own_items") or ())
+            present = sum(
+                e["owned"] and item_key(e["item"]) == item_key(name) for e in core_entries + picks
+            )
+            core_entries += [
+                {"item": name, "owned": True, "reason": f"quest {aug}"}
+                for _ in range(max(0, count - present))
+            ]
+            core_entries.insert(
+                len(done) + len(forced),
+                {"item": name, "owned": False, "reason": f"another copy: {aug} allows stacking"},
+            )
+
+    # Preserve quest priority and already-owned targets when the plan fills up.
+    entries = core_entries + picks
+    owned_entries = [e for e in entries if e["owned"]]
+    available = max(0, FULL_BUILD - len(owned_entries))
+    keep = {id(e) for e in owned_entries + [e for e in entries if not e["owned"]][:available]}
+    core_entries = [e for e in core_entries if id(e) in keep]
+    picks = [e for e in picks if id(e) in keep]
 
     # primul item neluat din ordinea core -> 4 -> 5 -> 6: exact ce urmeaza
     # sa cumperi acum. Nu schimbam build-ul, doar aratam unde ai ramas.
@@ -340,15 +509,43 @@ def resolve_build(build, roster, champion_tags, rule_set, item_stats=None,
             entry["next"] = True
             break
 
-    return {"starting": starting_left(build.get("starting"), roster.get("own_items"), stats),
-            "core": core_entries, "picks": picks,
-            "sell": sell_advice(build, roster, hot, item_stats, ok, rng,
-                                core_entries + picks),
-            "unavailable": unavailable, "range": rng,
-            "full": build_full(slot_items(roster.get("own_items"), stats), stats)}
+    protected_items = required_items(taken_augments, augment_items)
+    for effect, _ in effects:
+        protected_items += list(effect.get("needs") or []) + list(effect.get("any") or [])
+        protected_items += [effect[k] for k in ("stack", "combine") if effect.get(k)]
+        protected_items += list(effect.get("later") or [])
+    sale_build = dict(
+        build,
+        pool=list(
+            dict.fromkeys(
+                [e["item"] for e in entries if not e["owned"]]
+                + list(hot)
+                + list(build.get("pool") or [])
+            )
+        ),
+        protected=protected_items,
+    )
+    return {
+        "starting": starting_left(build.get("starting"), roster.get("own_items"), stats),
+        "core": core_entries,
+        "picks": picks,
+        "sell": sell_advice(
+            sale_build,
+            roster,
+            hot,
+            item_stats,
+            ok,
+            rng,
+            entries,
+            allow_planned_replacement=bool(catalog),
+        ),
+        "unavailable": unavailable,
+        "range": rng,
+        "full": build_full(slot_items(roster.get("own_items"), stats), stats),
+    }
 
 
-def remaining_gold(targets, own_items, recipes):
+def remaining_gold(targets, own_items, recipes) -> int:
     """Aurul care mai trebuie ca sa ai toti itemii din `targets`, cu ce ai deja.
 
     Un item cumparat nu se plateste iar, iar o componenta din inventar scade din pret
@@ -358,13 +555,15 @@ def remaining_gold(targets, own_items, recipes):
     for n in own_items or ():
         pool[n] = pool.get(n, 0) + 1
 
-    def cost(name):
+    def cost(name) -> int:
         if pool.get(name):
             pool[name] -= 1
             return 0
         r = recipes.get(name) or {}
         parts = r.get("from") or []
-        combine = max(0, (r.get("gold") or 0) - sum((recipes.get(c) or {}).get("gold") or 0 for c in parts))
+        combine = max(
+            0, (r.get("gold") or 0) - sum((recipes.get(c) or {}).get("gold") or 0 for c in parts)
+        )
         return combine + sum(cost(c) for c in parts)
 
     return sum(cost(t) for t in targets)
@@ -380,12 +579,15 @@ def starting_left(starting, own_items, item_stats=None):
     stats = item_stats or {}
     start = list(starting or [])
     keys = {item_key(n) for n in start}
-    own = [n for n in own_items or () if "poro" not in item_key(n)]   # trinket-ul ARAM
+    own = [n for n in own_items or () if "poro" not in item_key(n)]  # trinket-ul ARAM
     if any(item_key(n) not in keys for n in own):
         return []
     have = {item_key(n) for n in own}
-    return [n for n in start if item_key(n) not in have
-            and not (own and (stats.get(n) or {}).get("consumable"))]
+    return [
+        n
+        for n in start
+        if item_key(n) not in have and not (own and (stats.get(n) or {}).get("consumable"))
+    ]
 
 
 # itemi de start din ARAM care nu cresc in nimic: primii vanduti la sloturi pline
@@ -403,18 +605,26 @@ def build_full(owned, item_stats=None):
     """
     stats = item_stats or {}
     return len(owned) >= FULL_BUILD and not any(
-        (stats.get(n) or {}).get("component") and not (stats.get(n) or {}).get("boots")
-        or n == "Boots" for n in owned)
+        (stats.get(n) or {}).get("component")
+        and not (stats.get(n) or {}).get("boots")
+        or n == "Boots"
+        for n in owned
+    )
 
 
 def slot_items(own_items, item_stats=None):
     """Itemii care ocupa sloturi: fara pot-uri si fara trinket-ul de ARAM."""
     stats = item_stats or {}
-    return [n for n in own_items or ()
-            if not (stats.get(n) or {}).get("consumable") and "poro" not in item_key(n)]
+    return [
+        n
+        for n in own_items or ()
+        if not (stats.get(n) or {}).get("consumable") and "poro" not in item_key(n)
+    ]
 
 
-def sell_advice(build, roster, hot, item_stats=None, ok=None, rng=None, plan=()):
+def sell_advice(
+    build, roster, hot, item_stats=None, ok=None, rng=None, plan=(), allow_planned_replacement=False
+):
     """{sell, buy, reason}: ce sa vinzi acum si ce iei in loc, sau None.
 
     In ordinea importantei:
@@ -427,15 +637,18 @@ def sell_advice(build, roster, hot, item_stats=None, ok=None, rng=None, plan=())
     stats = item_stats or {}
     own = slot_items(roster.get("own_items"), stats)
     have = owned_keys(own, stats)
-    upcoming = [e["item"] for e in plan if not e.get("owned")
-                and item_key(e["item"]) not in have]
+    protected = {item_key(n) for n in build.get("protected") or []}
+    upcoming = [e["item"] for e in plan if not e.get("owned") and item_key(e["item"]) not in have]
     nxt = upcoming[0] if upcoming else None
 
     if ok is not None:
-        dead = next((n for n in own if not ok(n)), None)
+        dead = next((n for n in own if not ok(n) and not owned_keys([n], stats) & protected), None)
         if dead and nxt:
-            return {"sell": dead, "buy": nxt,
-                    "reason": f"nu merge pe {rng}" if rng else "nu-l mai poti folosi"}
+            return {
+                "sell": dead,
+                "buy": nxt,
+                "reason": f"not usable by {rng} champions" if rng else "you can no longer use it",
+            }
 
     if len(own) >= FULL_BUILD:
         # Itemul de start (Doran's, Guardian's, Cull) tine un slot intreg pentru
@@ -445,39 +658,88 @@ def sell_advice(build, roster, hot, item_stats=None, ok=None, rng=None, plan=())
         # Sword e in startul lui Master Yi, dar intra in Endless Hunger, deci
         # vanzandu-l pierdeai aurul pus deja in itemul pe care il cumparai.
         starters = {item_key(n) for n in build.get("starting") or ()}
-        filler = next((n for n in own
-                       if (item_key(n).startswith(STARTER_PREFIXES)
-                           or item_key(n) in starters and not (stats.get(n) or {}).get("component"))
-                       and not (stats.get(n) or {}).get("evolves_into")), None)
-        buy = nxt or next((n for n in hot if item_key(n) not in have), None) or next(
-            (n for n in build.get("pool") or [] if item_key(n) not in have
-             and not (stats.get(n) or {}).get("component")
-             and not (stats.get(n) or {}).get("boots")), None)
+        filler = next(
+            (
+                n
+                for n in own
+                if not owned_keys([n], stats) & protected
+                and (
+                    item_key(n).startswith(STARTER_PREFIXES)
+                    or item_key(n) in starters
+                    and not (stats.get(n) or {}).get("component")
+                )
+                and not (stats.get(n) or {}).get("evolves_into")
+            ),
+            None,
+        )
+        buy = (
+            nxt
+            or next((n for n in hot if item_key(n) not in have), None)
+            or next(
+                (
+                    n
+                    for n in build.get("pool") or []
+                    if item_key(n) not in have
+                    and not (stats.get(n) or {}).get("component")
+                    and not (stats.get(n) or {}).get("boots")
+                ),
+                None,
+            )
+        )
         if filler and buy:
-            return {"sell": filler, "buy": buy,
-                    "reason": "item de start, slotul valoreaza mai mult"}
+            return {
+                "sell": filler,
+                "buy": buy,
+                "reason": "starting item; the inventory slot is worth more",
+            }
 
-    advice = boots_advice(build, roster, hot, item_stats)
+    advice = boots_advice(build, roster, hot, item_stats, ok, upcoming)
     if advice or len(own) < FULL_BUILD:
         return advice
     if any((stats.get(n) or {}).get("component") for n in own):
-        return None          # inca o componenta de terminat: cumperi, nu vinzi
+        return None  # inca o componenta de terminat: cumperi, nu vinzi
 
     # Build plin si fara cizme de vandut: daca inamicii cer un contra-item pe
     # care nu-l ai, schimbi itemul din inventar care nu e nici in plan, nici
     # contra-item. Itemii din build-ul campionului nu se ating.
-    wanted = next((n for n in hot if item_key(n) not in have
-                   and not (stats.get(n) or {}).get("component")), None)
-    planned = {item_key(n) for n in (build.get("core") or [])
-               + [x for k in ("fourth", "fifth", "sixth") for x in build.get(k) or []]}
-    spare = next((n for n in own if item_key(n) not in planned and n not in hot
-                  and not (stats.get(n) or {}).get("boots")), None)
+    wanted = next((n for n in upcoming if item_key(n) in protected), None) or next(
+        (n for n in hot if item_key(n) not in have and not (stats.get(n) or {}).get("component")),
+        None,
+    )
+    planned = {
+        item_key(n)
+        for n in (build.get("core") or [])
+        + [x for k in ("fourth", "fifth", "sixth") for x in build.get(k) or []]
+    }
+    spare = next(
+        (
+            n
+            for n in own
+            if item_key(n) not in planned
+            and n not in hot
+            and item_key(n) not in protected
+            and not (stats.get(n) or {}).get("boots")
+        ),
+        None,
+    )
+    if spare is None and wanted and allow_planned_replacement:
+        core = {item_key(n) for n in build.get("core") or []}
+        spare = next(
+            (
+                n
+                for n in reversed(own)
+                if item_key(n) not in core | protected
+                and n not in hot
+                and not (stats.get(n) or {}).get("boots")
+            ),
+            None,
+        )
     if wanted and spare:
-        return {"sell": spare, "buy": wanted, "reason": hot[wanted]}
+        return {"sell": spare, "buy": wanted, "reason": hot.get(wanted) or "required by augment"}
     return None
 
 
-def boots_advice(build, roster, hot, item_stats=None):
+def boots_advice(build, roster, hot, item_stats=None, ok=None, preferred=()):
     """{sell, buy, reason} cand merita vandute cizmele, altfel None.
 
     Doar la build plin: pana atunci cizmele sunt un slot util. La 6 itemi
@@ -497,18 +759,24 @@ def boots_advice(build, roster, hot, item_stats=None):
     boots = next((n for n in owned if (stats.get(n) or {}).get("boots")), None)
     if not boots:
         return None
-    if boots in hot:
+    if boots in hot or owned_keys([boots], stats) & {
+        item_key(n) for n in build.get("protected") or []
+    }:
         return None
 
     have = owned_keys(owned, stats)
-    pool = [n for n in (build.get("pool") or [])
-            if item_key(n) not in have
-            and not (stats.get(n) or {}).get("boots")
-            and not (stats.get(n) or {}).get("consumable")
-            and not (stats.get(n) or {}).get("component")]
+    pool = [
+        n
+        for n in (build.get("pool") or [])
+        if item_key(n) not in have
+        and (ok is None or ok(n))
+        and not (stats.get(n) or {}).get("boots")
+        and not (stats.get(n) or {}).get("consumable")
+        and not (stats.get(n) or {}).get("component")
+    ]
     if not pool:
         return None
 
     # daca o regula de compozitie a marcat ceva, ala e inlocuitorul potrivit
-    best = next((n for n in pool if n in hot), pool[0])
+    best = next((n for n in preferred if n in pool), next((n for n in pool if n in hot), pool[0]))
     return {"sell": boots, "buy": best, "reason": hot.get(best)}

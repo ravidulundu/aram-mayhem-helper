@@ -1,20 +1,20 @@
 # ARAM Mayhem helper - in joc (fara Overwolf)
 
+> Documentație pentru modulul standalone și utilitarele sale. Aplicația desktop curentă pornește din `app.py` de la rădăcina depozitului și `ui/`. Pentru instalare, pipeline-ul ARAMKit, mediul Python și verificările actuale, folosește [README-ul principal în română](../README.md), [English](../README.en.md) sau [Türkçe](../README.tr.md). Proiect original: Joltarise / CyberKird; contribuțiile fork-ului ravidulundu sunt descrise acolo.
+
 Overlay care, in timpul meciului, arata rosterul (coechipieri + inamici) si
 build-ul campionului tau cu itemii relevanti pentru compozitia inamica
 evidentiati. Nu are nevoie de Overwolf -- rosterul vine direct de la Riot
 local (Live Client Data API).
 
-**Augment-urile oferite nu se pot citi asa** -- Riot nu le expune pe API-ul
-asta deloc. Overwolf ramane singura cale non-OCR pentru partea aia (vezi
-`../overwolf-app/`); alternativa e OCR pe ecran, nefacuta inca.
+**Augmentele oferite nu vin prin Live Client Data API.** Aplicația curentă folosește OCR nativ Windows implementat în `ocr_augments.py`; nu are nevoie de Overwolf. Implementarea alternativă istorică Overwolf rămâne în `../overwolf-app/`.
 
 ## Doua bucati separate, intentionat
 
 | | Cand ruleaza | Ce face |
 |---|---|---|
 | `app.py` | in timpul jocului | citeste rosterul, arata build-ul din cache. **Niciodata nu porneste un browser.** |
-| `prefetch_builds.py` | inainte sa joci | porneste Chromium (Playwright) ca sa ia build-urile de pe u.gg, o data, offline |
+| `prefetch_builds.py` | înainte să joci | utilitar istoric u.gg; pipeline-ul Mayhem curent este `update_aramkit.py`, documentat în README-ul principal |
 
 Sunt separate pentru ca un Chromium lansat live taie framerate (confirmat:
 ~40fps pe un setup cu 3 monitoare) - overlay-ul din timpul jocului trebuie sa

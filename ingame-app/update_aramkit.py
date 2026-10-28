@@ -23,11 +23,14 @@ Ruleaza-l la fiecare patch, niciodata in timpul unui meci:
 """
 
 import json
+import logging
 import pathlib
 import re
 import sys
 import time
 import urllib.request
+
+logger = logging.getLogger(__name__)
 
 ROOT = pathlib.Path(__file__).resolve().parent
 DATA = ROOT / "data"
@@ -39,10 +42,10 @@ UA = {"User-Agent": "Mozilla/5.0"}
 
 # Praguri sub care o optiune nu are suficiente meciuri ca sa conteze. Win rate
 # pe cateva zeci de meciuri e zgomot, nu recomandare.
-MIN_PICK = 0.02          # optiune de item / profil de build
-MIN_BOOTS_PICK = 0.03    # cizmele au putine variante, deci prag mai mare
-MIN_SPELL_PICK = 0.05    # perechea de summoner spells
-SLOT_OPTIONS = 4         # cate optiuni pastram pe slotul 4/5/6
+MIN_PICK = 0.02  # optiune de item / profil de build
+MIN_BOOTS_PICK = 0.03  # cizmele au putine variante, deci prag mai mare
+MIN_SPELL_PICK = 0.05  # perechea de summoner spells
+SLOT_OPTIONS = 4  # cate optiuni pastram pe slotul 4/5/6
 
 # Itemi pe care jucatorul nu ii poate cumpara desi datele ii listeaza (raportat
 # din joc). Se scot din orice recomandare; adauga aici ce se mai gaseste.
@@ -52,7 +55,9 @@ BLOCKED_ITEMS = {"Gluttonous Greaves"}
 MIN_ARMOR, MIN_MR, MIN_HP = 30, 30, 200
 
 
-def get(url, retries=3):
+def get(url: str, retries: int = 3) -> str:
+    if retries < 1:
+        raise ValueError("retries must be positive")
     for attempt in range(retries):
         try:
             req = urllib.request.Request(url, headers=UA)
@@ -62,6 +67,7 @@ def get(url, retries=3):
             if attempt == retries - 1:
                 raise
             time.sleep(1.5 * (attempt + 1))
+    raise RuntimeError("Retry loop ended without a response")
 
 
 def get_json(url):
@@ -84,15 +90,18 @@ def find_versions():
     for patch, tok in res:
         if not re.fullmatch(r"\d{8}", tok):
             r.setdefault(patch, f"{patch}-{tok}")
-    patches = sorted((p for p in d if p in r),
-                     key=lambda p: tuple(int(x) for x in p.split(".")), reverse=True)
+    patches = sorted(
+        (p for p in d if p in r), key=lambda p: tuple(int(x) for x in p.split(".")), reverse=True
+    )
     return [(p, d[p], r[p]) for p in patches]
 
 
 def load_resources(res_token):
     base = f"{CDN}/resources/{res_token}/en-US/resources"
-    return {name: get_json(f"{base}/{name}.json")
-            for name in ("champions", "items", "augments", "summoner-spells")}
+    return {
+        name: get_json(f"{base}/{name}.json")
+        for name in ("champions", "items", "augments", "summoner-spells")
+    }
 
 
 def details(data_token, champ_id):
@@ -101,8 +110,11 @@ def details(data_token, champ_id):
 
 def ranked(rows, min_pick=0.0):
     """Randurile in ordinea data de ARAMKit (rank), fara cele cu prea putine meciuri."""
-    return [r for r in sorted(rows, key=lambda r: r.get("rank", 1e9))
-            if r.get("pickRate", 0) >= min_pick]
+    return [
+        r
+        for r in sorted(rows, key=lambda r: r.get("rank", 1e9))
+        if r.get("pickRate", 0) >= min_pick
+    ]
 
 
 def item_name(items, item_id):
@@ -138,21 +150,31 @@ def build_for(champion, d, res):
     routes = profile.get("routes") or []
     route = routes[0] if routes else {}
 
-    core = [item_name(items, i["id"]) for i in
-            (route.get("purchaseOrder") or profile.get("itemSet") or [])]
+    core = [
+        item_name(items, i["id"])
+        for i in (route.get("purchaseOrder") or profile.get("itemSet") or [])
+    ]
     core = [n for n in core if n]
     if not core:
         return None
 
     starters = ranked(route.get("starters") or [], MIN_PICK)
-    starting = [n for n in (item_name(items, i["id"]) for i in
-                            (starters[0]["items"] if starters else [])) if n]
+    starting = [
+        n
+        for n in (item_name(items, i["id"]) for i in (starters[0]["items"] if starters else []))
+        if n
+    ]
 
     # cizmele nu sunt in itemSet: le punem dupa primul item, unde le cumperi de
     # obicei in ARAM. "No Boots" (id 0) e o optiune reala, dar nu e un item.
-    boots = next((item_name(items, b["item"]["id"]) for b in
-                  ranked(route.get("boots") or [], MIN_BOOTS_PICK)
-                  if b["item"]["id"] and item_name(items, b["item"]["id"])), None)
+    boots = next(
+        (
+            item_name(items, b["item"]["id"])
+            for b in ranked(route.get("boots") or [], MIN_BOOTS_PICK)
+            if b["item"]["id"] and item_name(items, b["item"]["id"])
+        ),
+        None,
+    )
     if boots and not any(is_boots_name(items, n) for n in core):
         core.insert(min(1, len(core)), boots)
 
@@ -180,14 +202,22 @@ def build_for(champion, d, res):
         if n not in pool:
             pool.append(n)
 
-    return {"champion": champion, "source": f"{SITE}/{res['champions'][str(d['champion']['id'])]['slug']}",
-            "mode": "ARAM Mayhem", "summoners": summoners, "starting": starting,
-            "core": core, **slots, "pool": pool}
+    return {
+        "champion": champion,
+        "source": f"{SITE}/{res['champions'][str(d['champion']['id'])]['slug']}",
+        "mode": "ARAM Mayhem",
+        "summoners": summoners,
+        "starting": starting,
+        "core": core,
+        **slots,
+        "pool": pool,
+    }
 
 
 def is_boots_name(items, name):
-    return any(v.get("name") == name and "Boots" in (v.get("categories") or [])
-               for v in items.values())
+    return any(
+        v.get("name") == name and "Boots" in (v.get("categories") or []) for v in items.values()
+    )
 
 
 def augment_tiers(d, augments):
@@ -215,6 +245,41 @@ _STAT_LABELS = {"Armor": "armor", "Magic Resist": "mr", "Health": "hp"}
 _MINIMUM = {"armor": MIN_ARMOR, "mr": MIN_MR, "hp": MIN_HP}
 
 
+def item_catalog(items):
+    """Shop eligibility and unthresholded item stats, from the same Mayhem resources."""
+    labels = {
+        "Ability Power": "ap",
+        "Attack Damage": "ad",
+        "Attack Speed": "as",
+        "Critical Strike Chance": "crit",
+        "Health": "hp",
+        "Armor": "armor",
+        "Magic Resist": "mr",
+        "Mana": "mana",
+        "Ability Haste": "haste",
+    }
+    out = {}
+    for item in items.values():
+        stats = {}
+        for block in (item.get("tooltip") or {}).get("blocks", []):
+            spans = block.get("spans", [])
+            label = next((s.get("label") for s in spans if s.get("type") == "icon"), None)
+            value = next((s.get("text") for s in spans if s.get("semantic") == "stat"), None)
+            if label in labels and value:
+                try:
+                    stats.setdefault(labels[label], float(re.sub(r"[^0-9.]", "", value)))
+                except ValueError:
+                    pass
+        out[item["name"]] = {
+            "acquisition": item.get("acquisition"),
+            "purchasable": bool(item.get("purchasable")) and item["name"] not in BLOCKED_ITEMS,
+            "isFinal": bool(item.get("isFinal")),
+            "categories": item.get("categories") or [],
+            "stats": stats,
+        }
+    return out
+
+
 def item_files(items):
     """(item-desc, item-stats) din itemele de Mayhem ale ARAMKit."""
     names = {k: v["name"] for k, v in items.items()}
@@ -230,7 +295,7 @@ def item_files(items):
         for block in (item.get("tooltip") or {}).get("blocks", []):
             spans = block.get("spans", [])
             label = next((sp.get("label") for sp in spans if sp.get("type") == "icon"), None)
-            key = _STAT_LABELS.get(label)
+            key = _STAT_LABELS.get(label) if isinstance(label, str) else None
             value = next((sp.get("text") for sp in spans if sp.get("semantic") == "stat"), None)
             if key and value and key not in entry:
                 try:
@@ -260,8 +325,10 @@ def item_files(items):
 
         # evolutii: "Transforms into X at ..." (Manamune -> Muramana) si lantul
         # de upgrade al cizmelor (Mercury's Treads -> Chainlaced Crushers)
-        evolves = {re.sub(r"\s+", " ", m).strip()
-                   for m in re.findall(r"Transforms into\s+(.+?)\s+(?:at|after|when)", text)}
+        evolves = {
+            re.sub(r"\s+", " ", m).strip()
+            for m in re.findall(r"Transforms into\s+(.+?)\s+(?:at|after|when)", text)
+        }
         if "Boots" in cats:
             evolves |= {names[i] for i in item.get("to") or [] if i in names}
         if evolves:
@@ -286,15 +353,15 @@ def names_in(text, item_names):
 def augment_effects(augments, item_names, extra_desc=None):
     """Ce schimba un augment la build, din textul lui (ARAMKit + augment-desc):
 
-      range    "melee"/"ranged"   ("You are now melee": Draw Your Sword)
-      needs    [itemi]            questul cere sa-i ai ("Possess A and B")
-      combine  item               questul ii uneste intr-unul ("combine into X"):
-                                  se elibereaza un slot, iar A si B nu se mai cumpara
-      stack    item               se poate cumpara de mai multe ori ("purchase unlimited")
-      likes    "onhit"/"crit"     augmentul se foloseste de itemii cu efectul asta
-      any      [itemi]            "Upgrade" care merge cu oricare din ei (Immolate)
-      gives    [itemi]            primiti pe loc ("Immediate: Gain a Bami's Cinder")
-      later    [itemi]            primiti mai tarziu, nu se cumpara (Time Warp)
+    range    "melee"/"ranged"   ("You are now melee": Draw Your Sword)
+    needs    [itemi]            questul cere sa-i ai ("Possess A and B")
+    combine  item               questul ii uneste intr-unul ("combine into X"):
+                                se elibereaza un slot, iar A si B nu se mai cumpara
+    stack    item               se poate cumpara de mai multe ori ("purchase unlimited")
+    likes    "onhit"/"crit"     augmentul se foloseste de itemii cu efectul asta
+    any      [itemi]            "Upgrade" care merge cu oricare din ei (Immolate)
+    gives    [itemi]            primiti pe loc ("Immediate: Gain a Bami's Cinder")
+    later    [itemi]            primiti mai tarziu, nu se cumpara (Time Warp)
     """
     texts = {}
     for aug in augments.values():
@@ -306,6 +373,10 @@ def augment_effects(augments, item_names, extra_desc=None):
         text = re.sub(r"\s+", " ", " ".join(parts))
         low = text.lower()
         eff = {}
+        if "convert bonus attack damage to ability power" in low:
+            eff["damage"] = "AP"
+        elif "convert ability power to" in low and "attack damage" in low:
+            eff["damage"] = "AD"
         m = re.search(r"you are now (melee|ranged)", low)
         if m:
             eff["range"] = m.group(1)
@@ -322,25 +393,37 @@ def augment_effects(augments, item_names, extra_desc=None):
                 eff["any"] = first
         # itemi primiti pe loc (apar in inventar fara sa platesti: asa stim ca
         # l-ai luat) si itemi primiti mai tarziu (nu-i mai cumperi)
-        gives = [n for m in re.finditer(r"(?:Immediate(?:ly)?|instantly gains?)([^.,]*)", text, re.I)
-                 for n in names_in(m.group(1), item_names)]
+        gives = [
+            n
+            for m in re.finditer(
+                r"(?:Immediate(?:ly)?|instantly gains?)([^.,]*)", text, re.IGNORECASE
+            )
+            for n in names_in(m.group(1), item_names)
+        ]
         if gives:
             eff["gives"] = list(dict.fromkeys(gives))
-        later = [n for m in re.finditer(r"into the future and gain ([^.]*)", text, re.I)
-                 for n in names_in(m.group(1), item_names)]
+        later = [
+            n
+            for m in re.finditer(r"into the future and gain ([^.]*)", text, re.IGNORECASE)
+            for n in names_in(m.group(1), item_names)
+        ]
         if later:
             eff["later"] = later
-        m = re.search(r"combine into (.+?)(?:\.|$)", text, re.I)
+        m = re.search(r"combine into (.+?)(?:\.|$)", text, re.IGNORECASE)
         if m and names_in(m.group(1), item_names):
             eff["combine"] = names_in(m.group(1), item_names)[0]
-        m = re.search(r"purchase unlimited (?:amounts of )?(.+?)(?:\.|$)", text, re.I)
+        m = re.search(r"purchase unlimited (?:amounts of )?(.+?)(?:\.|$)", text, re.IGNORECASE)
         if m and names_in(m.group(1), item_names):
             eff["stack"] = names_in(m.group(1), item_names)[0]
         if re.search(r"On-?Hit|Item_Keyword_OnHit", text):
             eff["likes"] = "onhit"
-        elif "critical strike" in low and "crit" not in name.lower()                 and "can critically strike" not in low:
-            eff["likes"] = "crit"
-        elif re.search(r"crit", name, re.I) and "can critically strike" not in low:
+        elif (
+            "critical strike" in low
+            and "crit" not in name.lower()
+            and "can critically strike" not in low
+            or re.search(r"crit", name, re.IGNORECASE)
+            and "can critically strike" not in low
+        ):
             eff["likes"] = "crit"
         if eff:
             out[name] = eff
@@ -350,33 +433,45 @@ def augment_effects(augments, item_names, extra_desc=None):
 def champion_ranges():
     """{campion: raza de atac de baza} din Data Dragon (>= 300 = ranged)."""
     version = get_json("https://ddragon.leagueoflegends.com/api/versions.json")[0]
-    data = get_json(f"https://ddragon.leagueoflegends.com/cdn/{version}/data/en_US/champion.json")["data"]
+    data = get_json(f"https://ddragon.leagueoflegends.com/cdn/{version}/data/en_US/champion.json")[
+        "data"
+    ]
     return {c["name"]: c["stats"]["attackrange"] for c in data.values()}
 
 
 MIN_AUG_PICK, MIN_AUG_GAMES, AUG_TOP = 0.03, 300, 6
 
 
-def augment_item_stats(champ_id, data_token, res):
+def augment_item_stats(champ_id, data_token, res, sample_counts=None):
     """{nume augment: [[id item, win rate x1000, pick rate x1000], ...]}.
 
     Itemii care merg cel mai bine CU augmentul respectiv pe campionul asta (din
     "single augments" ARAMKit, ~1.8 MB per campion, de aceea doar rezumatul).
     Doar itemi cumparabili, cu destule meciuri ca sa nu fie zgomot.
     """
-    raw = get_json(f"{CDN}/data/{data_token}/stats/all/champion-details/{champ_id}-single-augments.json")
+    raw = get_json(
+        f"{CDN}/data/{data_token}/stats/all/champion-details/{champ_id}-single-augments.json"
+    )
     out = {}
     for row in raw.get("items") or []:
         name = (res["augments"].get(str(row["augmentId"])) or {}).get("name")
         if not name:
             continue
-        rows = [r for r in row.get("all") or []
-                if r.get("pickRate", 0) >= MIN_AUG_PICK and r.get("sampleCount", 0) >= MIN_AUG_GAMES
-                and item_name(res["items"], r["id"])]
+        rows = [
+            r
+            for r in row.get("all") or []
+            if r.get("pickRate", 0) >= MIN_AUG_PICK
+            and r.get("sampleCount", 0) >= MIN_AUG_GAMES
+            and item_name(res["items"], r["id"])
+        ]
         rows.sort(key=lambda r: -r["winRate"])
         if rows:
-            out[name] = [[r["id"], round(r["winRate"] * 1000), round(r["pickRate"] * 1000)]
-                         for r in rows[:AUG_TOP]]
+            out[name] = [
+                [r["id"], round(r["winRate"] * 1000), round(r["pickRate"] * 1000)]
+                for r in rows[:AUG_TOP]
+            ]
+            if sample_counts is not None:
+                sample_counts[name] = {str(r["id"]): r["sampleCount"] for r in rows[:AUG_TOP]}
     return out
 
 
@@ -392,26 +487,54 @@ def main():
     champions = res["champions"]
 
     desc, istats = item_files(res["items"])
+    (DATA / "item-catalog.json").write_text(
+        json.dumps(
+            {
+                "version": patch,
+                "source": f"{CDN}/resources/{res_token}/en-US/resources/items.json",
+                "items": item_catalog(res["items"]),
+            },
+            indent=1,
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
     (DATA / "item-desc.json").write_text(
-        json.dumps(desc, indent=1, sort_keys=True, ensure_ascii=False), encoding="utf-8")
+        json.dumps(desc, indent=1, sort_keys=True, ensure_ascii=False), encoding="utf-8"
+    )
     (DATA / "item-stats.json").write_text(
-        json.dumps(istats, indent=1, sort_keys=True, ensure_ascii=False), encoding="utf-8")
+        json.dumps(istats, indent=1, sort_keys=True, ensure_ascii=False), encoding="utf-8"
+    )
     # pret total + componente, ca sa stim cat mai ai de platit pana la build complet
     names = {k: v["name"] for k, v in res["items"].items()}
-    recipes = {it["name"]: {"gold": it.get("priceTotal") or 0,
-                            "from": [names[str(c)] for c in it.get("from") or () if str(c) in names]}
-               for it in res["items"].values()}
+    recipes = {
+        it["name"]: {
+            "gold": it.get("priceTotal") or 0,
+            "from": [names[str(c)] for c in it.get("from") or () if str(c) in names],
+        }
+        for it in res["items"].values()
+    }
     (DATA / "item-recipes.json").write_text(
-        json.dumps(recipes, indent=1, sort_keys=True, ensure_ascii=False), encoding="utf-8")
+        json.dumps(recipes, indent=1, sort_keys=True, ensure_ascii=False), encoding="utf-8"
+    )
     (DATA / "item-ids.json").write_text(
-        json.dumps({k: v["name"] for k, v in res["items"].items()}, sort_keys=True,
-                   ensure_ascii=False), encoding="utf-8")
-    effects = augment_effects(res["augments"], set(desc), json.loads(
-        (DATA / "augment-desc.json").read_text(encoding="utf-8")))
+        json.dumps(
+            {k: v["name"] for k, v in res["items"].items()}, sort_keys=True, ensure_ascii=False
+        ),
+        encoding="utf-8",
+    )
+    effects = augment_effects(
+        res["augments"],
+        set(desc),
+        json.loads((DATA / "augment-desc.json").read_text(encoding="utf-8")),
+    )
     (DATA / "augment-effects.json").write_text(
-        json.dumps(effects, indent=1, sort_keys=True, ensure_ascii=False), encoding="utf-8")
+        json.dumps(effects, indent=1, sort_keys=True, ensure_ascii=False), encoding="utf-8"
+    )
     (DATA / "champion-range.json").write_text(
-        json.dumps(champion_ranges(), indent=1, sort_keys=True, ensure_ascii=False), encoding="utf-8")
+        json.dumps(champion_ranges(), indent=1, sort_keys=True, ensure_ascii=False),
+        encoding="utf-8",
+    )
     print(f"itemi de Mayhem: {len(desc)} descrieri, {len(istats)} cu statistici")
 
     (DATA / "builds").mkdir(parents=True, exist_ok=True)
@@ -421,28 +544,40 @@ def main():
     # data ARAMKit se reface si in cursul aceluiasi patch: "revision" (data) e
     # ce decide ce copie e mai noua, "version" ramane patch-ul pentru afisare
     revision = data_token.split("-")[1]
-    bundle = {"version": patch, "revision": revision, "builds": {}, "augments": {}, "global": {},
-              "augment_builds": {}}
+    bundle = {
+        "version": patch,
+        "revision": revision,
+        "builds": {},
+        "augments": {},
+        "global": {},
+        "augment_builds": {},
+        "augment_samples": {},
+        "item_catalog": item_catalog(res["items"]),
+    }
     for i, (cid, meta) in enumerate(sorted(champions.items(), key=lambda kv: int(kv[0])), 1):
         name = meta["name"]
         try:
             d = details(data_token, cid)
         except Exception as e:
+            logger.exception('ingame-app/update_aramkit.py:main failed; preserving fallback')
             failed.append(name)
             print(f"  [{i}/{len(champions)}] {name}: {type(e).__name__}")
             continue
 
         s = d["champion"]["stats"]
         stats[name] = {
-            "wr": round(s["winRate"] * 100, 1), "pr": round(s["pickRate"] * 100, 1),
-            "tier": d["champion"].get("tier"), "games": s.get("sampleCount"),
+            "wr": round(s["winRate"] * 100, 1),
+            "pr": round(s["pickRate"] * 100, 1),
+            "tier": d["champion"].get("tier"),
+            "games": s.get("sampleCount"),
             "balance": meta.get("balance") or {},
         }
 
         build = build_for(name, d, res)
         if build:
             (DATA / "builds" / f"{slug(name)}.json").write_text(
-                json.dumps(build, indent=1, ensure_ascii=False), encoding="utf-8")
+                json.dumps(build, indent=1, ensure_ascii=False), encoding="utf-8"
+            )
             bundle["builds"][slug(name)] = build
             built += 1
 
@@ -450,19 +585,23 @@ def main():
         if tiers:
             entry = {"champion": name, "source": f"{SITE}/{meta['slug']}", "tiers": tiers}
             (DATA / "augments" / f"{slug(name)}.json").write_text(
-                json.dumps(entry, indent=1, ensure_ascii=False), encoding="utf-8")
+                json.dumps(entry, indent=1, ensure_ascii=False), encoding="utf-8"
+            )
             bundle["augments"][slug(name)] = entry
 
         for row in (d.get("augments") or {}).get("all") or []:
             global_tier.setdefault(row["id"], row.get("augmentTier"))
 
         try:
-            ab = augment_item_stats(cid, data_token, res)
+            samples = {}
+            ab = augment_item_stats(cid, data_token, res, samples)
             if ab:
                 bundle["augment_builds"][slug(name)] = ab
+                bundle["augment_samples"][slug(name)] = samples
         except Exception as e:
+            logger.exception('ingame-app/update_aramkit.py:main failed; preserving fallback')
             print(f"  {name}: fara itemi per augment ({type(e).__name__})")
-        time.sleep(0.15)       # curtoazie fata de CDN, nu bombardam serverul
+        time.sleep(0.15)  # curtoazie fata de CDN, nu bombardam serverul
 
     assert len(stats) >= 150, f"prea putini campioni ({len(stats)}), nu scriu nimic"
 
@@ -474,10 +613,12 @@ def main():
             by_rarity.setdefault(aug["rarity"], {}).setdefault(tier, []).append(aug["name"])
     by_rarity["_source"] = f"{SITE} (ARAM Mayhem), patch {patch}"
     (DATA / "augments-global.json").write_text(
-        json.dumps(by_rarity, indent=1, ensure_ascii=False), encoding="utf-8")
+        json.dumps(by_rarity, indent=1, ensure_ascii=False), encoding="utf-8"
+    )
     bundle["global"] = by_rarity
     (DATA / "mayhem-bundle.json").write_text(
-        json.dumps(bundle, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+        json.dumps(bundle, ensure_ascii=False, separators=(",", ":")), encoding="utf-8"
+    )
 
     # patch-ul anterior, doar partea de statistici, pentru sagetile de schimbare
     previous = None
@@ -491,15 +632,30 @@ def main():
                 pc = details(pdata, cid)["champion"]
                 ps = pc["stats"]
             except Exception:
+                logger.exception('ingame-app/update_aramkit.py:main failed; preserving fallback')
                 continue
-            pstats[meta["name"]] = {"wr": round(ps["winRate"] * 100, 1),
-                                    "pr": round(ps["pickRate"] * 100, 1), "tier": pc.get("tier")}
+            pstats[meta["name"]] = {
+                "wr": round(ps["winRate"] * 100, 1),
+                "pr": round(ps["pickRate"] * 100, 1),
+                "tier": pc.get("tier"),
+            }
             time.sleep(0.15)
         previous = {"version": pp, "champions": pstats}
 
-    STATS_OUT.write_text(json.dumps(
-        {"version": patch, "revision": revision, "source": "aramkit.com (ARAM Mayhem)", "champions": stats,
-         "previous": previous}, indent=1, ensure_ascii=False), encoding="utf-8")
+    STATS_OUT.write_text(
+        json.dumps(
+            {
+                "version": patch,
+                "revision": revision,
+                "source": "aramkit.com (ARAM Mayhem)",
+                "champions": stats,
+                "previous": previous,
+            },
+            indent=1,
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
     print(f"gata: {len(stats)} campioni, {built} build-uri, esuati: {failed or 'niciunul'}")
 
 

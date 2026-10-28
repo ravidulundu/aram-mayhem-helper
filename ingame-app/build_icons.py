@@ -20,11 +20,14 @@ Ruleaza-l o data, si din nou la patch nou / dupa prefetch_builds.py:
 """
 
 import json
+import logging
 import pathlib
 import re
 import urllib.request
 
 import elixir
+
+logger = logging.getLogger(__name__)
 
 HERE = pathlib.Path(__file__).parent
 BUILDS = HERE / "data" / "builds"
@@ -32,10 +35,9 @@ ICONS = HERE / "data" / "icons"
 
 DDRAGON = "https://ddragon.leagueoflegends.com"
 VERSIONS = f"{DDRAGON}/api/versions.json"
-CDRAGON = ("https://raw.communitydragon.org/latest/plugins/"
-           "rcp-be-lol-game-data/global/default")
+CDRAGON = "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default"
 AUGMENTS = f"{CDRAGON}/v1/cherry-augments.json"
-HEADERS = {"User-Agent": "Mozilla/5.0"}   # CommunityDragon respinge default-ul
+HEADERS = {"User-Agent": "Mozilla/5.0"}  # CommunityDragon respinge default-ul
 
 
 def slug(name):
@@ -45,13 +47,16 @@ def slug(name):
 
 def fetch(url):
     # wiki-ul oficial da 403 la "Mozilla/5.0" si accepta un user-agent care se prezinta
-    headers = {"User-Agent": "aram-mayhem-helper icon fetch (contact@joltarise.com)"} if "wiki." in url else HEADERS
-    with urllib.request.urlopen(
-            urllib.request.Request(url, headers=headers), timeout=60) as r:
+    headers = (
+        {"User-Agent": "aram-mayhem-helper icon fetch (contact@joltarise.com)"}
+        if "wiki." in url
+        else HEADERS
+    )
+    with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=60) as r:
         return r.read()
 
 
-MAX_ICON = 80      # px; cel mai mare afisaj e ~70 la 4K, restul e greutate degeaba
+MAX_ICON = 80  # px; cel mai mare afisaj e ~70 la 4K, restul e greutate degeaba
 
 
 def shrink(png_bytes):
@@ -59,10 +64,12 @@ def shrink(png_bytes):
     interfata se vad la 28-34 px. 535 de fisiere mari tineau exe-ul la 15 MB de
     imagini si il faceau sa porneasca mai greu (se dezarhiveaza la fiecare rulare)."""
     import io
+
     from PIL import Image
+
     img = Image.open(io.BytesIO(png_bytes)).convert("RGBA")
     if max(img.size) > MAX_ICON:
-        img.thumbnail((MAX_ICON, MAX_ICON), Image.LANCZOS)
+        img.thumbnail((MAX_ICON, MAX_ICON), Image.Resampling.LANCZOS)
     # paleta de 256 culori: la 30 px nu se vede, iar fisierul scade la o treime
     img = img.quantize(colors=256, method=Image.Quantize.FASTOCTREE)
     out = io.BytesIO()
@@ -89,10 +96,13 @@ def save_all(kind, sources):
             out.write_bytes(shrink(fetch(url)))
             saved += 1
         except Exception as e:
+            logger.exception('ingame-app/build_icons.py:save_all failed; preserving fallback')
             failed += 1
             print(f"  {kind}: {name} -- {type(e).__name__}")
-    print(f"{kind:10s} {saved:4d} noi, {skipped:4d} aveam, {failed:3d} esuate "
-          f"({len(sources)} in total)")
+    print(
+        f"{kind:10s} {saved:4d} noi, {skipped:4d} aveam, {failed:3d} esuate "
+        f"({len(sources)} in total)"
+    )
 
 
 def item_sources(version):
@@ -103,7 +113,7 @@ def item_sources(version):
         for key in ("starting", "core", "fourth", "fifth", "sixth", "pool"):
             wanted.update(build.get(key) or [])
 
-    wanted.update(elixir.ELIXIRS)       # indicatorul de 500g nu apare in build-uri
+    wanted.update(elixir.ELIXIRS)  # indicatorul de 500g nu apare in build-uri
 
     catalog = fetch_json(f"{DDRAGON}/cdn/{version}/data/en_US/item.json")["data"]
     by_name = {}
@@ -116,7 +126,9 @@ def item_sources(version):
     # Stat Anvil ("Stat Bonus" in datele de Mayhem) nu e in Data Dragon: iconita vine de la CommunityDragon
     for row in fetch_json(f"{CDRAGON}/v1/items.json"):
         if row.get("name") == "Stat Bonus" and row.get("iconPath"):
-            out["Stat Bonus"] = CDRAGON + row["iconPath"].replace("/lol-game-data/assets", "").lower()
+            out["Stat Bonus"] = (
+                CDRAGON + row["iconPath"].replace("/lol-game-data/assets", "").lower()
+            )
             break
     return out
 
@@ -138,15 +150,20 @@ def headliner_sources():
         for group in (hub.get("modesObjectiveGroupList") or {}).get("ModesObjectiveGroups") or []:
             data = group.get("displayData") or {}
             if data.get("name") and data.get("logoImagePath") and data["name"] != "Worlds":
-                out[data["name"]] = (CDRAGON + data["logoImagePath"].replace("/lol-game-data/assets", "").lower())
+                out[data["name"]] = (
+                    CDRAGON + data["logoImagePath"].replace("/lol-game-data/assets", "").lower()
+                )
     return out
 
 
 def champion_sources(version):
     """Toti campionii: oricare poate aparea pe bench sau in echipa inamica."""
     catalog = fetch_json(f"{DDRAGON}/cdn/{version}/data/en_US/champion.json")["data"]
-    return {c["name"]: f"{DDRAGON}/cdn/{version}/img/champion/{c['image']['full']}"
-            for c in catalog.values() if c.get("name") and c.get("image")}
+    return {
+        c["name"]: f"{DDRAGON}/cdn/{version}/img/champion/{c['image']['full']}"
+        for c in catalog.values()
+        if c.get("name") and c.get("image")
+    }
 
 
 def summoner_sources(version):

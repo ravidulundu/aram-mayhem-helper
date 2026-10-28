@@ -21,7 +21,7 @@ function badge(b) {
     { '--c': color },
     h('span.t', { text: b.tier }),
     b.name && h('span.n', { text: b.name }),
-    (b.taken || b.is_best) && h('span.k', { text: b.taken ? 'LUAT' : 'BEST' }))
+    (b.taken || b.is_best) && h('span.k', { text: b.taken ? 'TAKEN' : 'BEST' }))
   if (b.pick) el.addEventListener('click', () => api.send('badge-pick', b.pick))
   return el
 }

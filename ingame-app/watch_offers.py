@@ -9,20 +9,28 @@ si ce nu. Fara asta ne uitam pe ecran dupa ce oferta a trecut deja.
 
 import asyncio
 import json
+import logging
 import pathlib
 import time
 
+import win32gui
+
 import augment_tier
 import ocr_augments
-import win32gui
+
+logger = logging.getLogger(__name__)
 
 LOG = pathlib.Path(__file__).with_name("data") / "_offers.log"
 
 
 def main():
     names = augment_tier.flatten_names(
-        json.loads((pathlib.Path(__file__).with_name("data") /
-                    "augments-global.json").read_text(encoding="utf-8")))
+        json.loads(
+            (pathlib.Path(__file__).with_name("data") / "augments-global.json").read_text(
+                encoding="utf-8"
+            )
+        )
+    )
     keys = ocr_augments._augment_keys(names)
 
     LOG.write_text(f"start {time.strftime('%H:%M:%S')}\n", encoding="utf-8")
@@ -33,9 +41,11 @@ def main():
         if hwnd and win32gui.GetForegroundWindow() == hwnd:
             try:
                 img = ocr_augments.capture_region(
-                    ocr_augments.offer_region(ocr_augments.game_rect(hwnd)))
+                    ocr_augments.offer_region(ocr_augments.game_rect(hwnd))
+                )
                 txt = asyncio.run(ocr_augments._ocr_bytes(img))
             except Exception as e:
+                logger.exception('ingame-app/watch_offers.py:main failed; preserving fallback')
                 txt = f"<EROARE {type(e).__name__}: {e}>"
 
             hay = ocr_augments._norm(txt)

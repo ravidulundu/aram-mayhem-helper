@@ -44,8 +44,7 @@ def main():
         }
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text(json.dumps(out, indent=1, ensure_ascii=False, sort_keys=True),
-                   encoding="utf-8")
+    OUT.write_text(json.dumps(out, indent=1, ensure_ascii=False, sort_keys=True), encoding="utf-8")
 
     counts = {}
     for v in out.values():

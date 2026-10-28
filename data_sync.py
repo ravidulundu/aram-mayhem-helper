@@ -8,9 +8,14 @@ veche: aplicatia trebuie sa porneasca si offline.
 """
 
 import json
+import logging
+import os
 import pathlib
+import tempfile
 
 import requests
+
+logger = logging.getLogger(__name__)
 
 RAW = "https://raw.githubusercontent.com/CyberKird/aram-mayhem-helper/master/"
 # fisier -> (cale in repo, cheia de versiune, cheia care trebuie sa existe)
@@ -22,6 +27,32 @@ FILES = {
 TIMEOUT = 8
 
 
+def _version(data, key):
+    def parts(value):
+        return tuple(int(p) if p.isdigit() else 0 for p in str(value or "").split("."))
+
+    return parts(data.get("version") or data.get("patch")), parts(data.get(key))
+
+
+def _write_json(path, data):
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=path.parent,
+            prefix=path.name + ".",
+            suffix=".tmp",
+            delete=False,
+        ) as f:
+            temporary = pathlib.Path(f.name)
+            json.dump(data, f, ensure_ascii=False)
+        os.replace(temporary, path)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+
+
 def sync(dest):
     """Descarca fisierele in `dest`. Intoarce lista celor actualizate."""
     dest = pathlib.Path(dest)
@@ -31,6 +62,14 @@ def sync(dest):
         etags = json.loads(etag_file.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         etags = {}
+    if not isinstance(etags, dict):
+        logger.warning("Ignoring non-object ETag cache")
+        etags = {}
+    etags = {
+        name: value
+        for name, value in etags.items()
+        if isinstance(name, str) and isinstance(value, str)
+    }
     updated = []
     for name, (folder, version_key, required) in FILES.items():
         try:
@@ -43,16 +82,48 @@ def sync(dest):
             if r.status_code != 200:
                 continue
             data = r.json()
-            if not data.get(version_key) or not data.get(required):
-                continue            # raspuns ciudat: nu stricam ce avem
-            (dest / name).write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+            if (
+                not isinstance(data, dict)
+                or not data.get(version_key)
+                or not isinstance(data.get(required), dict)
+                or not data[required]
+            ):
+                continue  # raspuns ciudat: nu stricam ce avem
+            if name == "mayhem-bundle.json" and any(
+                not isinstance(build, dict)
+                or any(
+                    not isinstance(build.get(field, []), list)
+                    or any(not isinstance(n, str) for n in build.get(field, []))
+                    for field in (
+                        "starting",
+                        "core",
+                        "fourth",
+                        "fifth",
+                        "sixth",
+                        "pool",
+                        "summoners",
+                    )
+                )
+                for build in data[required].values()
+            ):
+                continue
+            try:
+                current = json.loads((dest / name).read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                current = {}
+            if isinstance(current, dict) and _version(current, version_key) > _version(
+                data, version_key
+            ):
+                continue
+            _write_json(dest / name, data)
             if r.headers.get("ETag"):
                 etags[name] = r.headers["ETag"]
             updated.append(name)
         except Exception:
+            logger.exception('data_sync.py:sync failed; preserving fallback')
             continue
     try:
-        etag_file.write_text(json.dumps(etags), encoding="utf-8")
+        _write_json(etag_file, etags)
     except OSError:
         pass
     return updated

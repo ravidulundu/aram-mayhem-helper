@@ -27,8 +27,9 @@ def main():
     version = fetch_json(VERSIONS)[0]
     data = fetch_json(CHAMPIONS.format(v=version))["data"]
     mapping = {c["id"]: c["name"] for c in data.values()}
-    OUT.write_text(json.dumps(mapping, indent=1, ensure_ascii=False, sort_keys=True),
-                   encoding="utf-8")
+    OUT.write_text(
+        json.dumps(mapping, indent=1, ensure_ascii=False, sort_keys=True), encoding="utf-8"
+    )
     print(f"Data Dragon {version}: {len(mapping)} campioni -> {OUT.name}")
 
 

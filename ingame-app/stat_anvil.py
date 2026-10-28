@@ -37,46 +37,44 @@ SHARD_NAMES = list(SHARD_CATEGORY)
 
 # scor de baza per categorie, dupa damageType-ul campionului (AD/AP/mixed)
 CATEGORY_BY_DAMAGE = {
-    "ap":              {"AP": 10, "mixed": 6, "AD": 0},
-    "ad":              {"AD": 10, "mixed": 6, "AP": 0},
-    "haste":           {"AP": 8, "mixed": 6, "AD": 4},
-    "as":              {"AD": 7, "mixed": 4, "AP": 1},
-    "crit":            {"AD": 5, "mixed": 3, "AP": 0},
-    "hp":              {"AP": 5, "AD": 5, "mixed": 5},
-    "pen_ad":          {"AD": 8, "mixed": 5, "AP": 0},
-    "pen_ap":          {"AP": 8, "mixed": 5, "AD": 0},
-    "mr":              {"AP": 3, "AD": 3, "mixed": 3},
-    "armor":           {"AP": 3, "AD": 3, "mixed": 3},
-    "hybrid_dmg":      {"AD": 6, "AP": 6, "mixed": 8},
-    "hybrid_utility":  {"AD": 6, "AP": 6, "mixed": 6},
-    "hybrid_defense":  {"AD": 4, "AP": 4, "mixed": 4},
-    "mobility":        {"AD": 4, "AP": 4, "mixed": 4},
-    "sustain":         {"AD": 5, "AP": 2, "mixed": 4},
-    "heal_power":      {"AD": 1, "AP": 3, "mixed": 2},
-    "cc_resist":       {"AD": 3, "AP": 3, "mixed": 3},
+    "ap": {"AP": 10, "mixed": 6, "AD": 0},
+    "ad": {"AD": 10, "mixed": 6, "AP": 0},
+    "haste": {"AP": 8, "mixed": 6, "AD": 4},
+    "as": {"AD": 7, "mixed": 4, "AP": 1},
+    "crit": {"AD": 5, "mixed": 3, "AP": 0},
+    "hp": {"AP": 5, "AD": 5, "mixed": 5},
+    "pen_ad": {"AD": 8, "mixed": 5, "AP": 0},
+    "pen_ap": {"AP": 8, "mixed": 5, "AD": 0},
+    "mr": {"AP": 3, "AD": 3, "mixed": 3},
+    "armor": {"AP": 3, "AD": 3, "mixed": 3},
+    "hybrid_dmg": {"AD": 6, "AP": 6, "mixed": 8},
+    "hybrid_utility": {"AD": 6, "AP": 6, "mixed": 6},
+    "hybrid_defense": {"AD": 4, "AP": 4, "mixed": 4},
+    "mobility": {"AD": 4, "AP": 4, "mixed": 4},
+    "sustain": {"AD": 5, "AP": 2, "mixed": 4},
+    "heal_power": {"AD": 1, "AP": 3, "mixed": 2},
+    "cc_resist": {"AD": 3, "AP": 3, "mixed": 3},
 }
 
 # bonus dupa tag-urile campionului (Fighter/Mage/Marksman/Tank/Support/Assassin)
 TAG_BONUS = {
     "Marksman": {"crit": 6, "as": 4, "ad": 2},
-    "Mage":     {"ap": 3, "pen_ap": 3, "haste": 2},
+    "Mage": {"ap": 3, "pen_ap": 3, "haste": 2},
     "Assassin": {"pen_ad": 3, "pen_ap": 3, "sustain": 2},
-    "Fighter":  {"hybrid_defense": 2, "sustain": 3, "hp": 2},
-    "Tank":     {"hp": 5, "armor": 4, "mr": 4, "hybrid_defense": 5, "cc_resist": 3},
-    "Support":  {"heal_power": 5, "hp": 2, "cc_resist": 2},
+    "Fighter": {"hybrid_defense": 2, "sustain": 3, "hp": 2},
+    "Tank": {"hp": 5, "armor": 4, "mr": 4, "hybrid_defense": 5, "cc_resist": 3},
+    "Support": {"heal_power": 5, "hp": 2, "cc_resist": 2},
 }
 
 # per punct de inamic cu damage type-ul respectiv, pe langa scorul de baza --
 # tancul de armura conteaza mai mult contra o echipa toata AD
-ENEMY_DAMAGE_WEIGHT = {"armor": ("AD", 1.5), "mr": ("AP", 1.5),
-                       "hybrid_defense": (None, 0.75)}
+ENEMY_DAMAGE_WEIGHT = {"armor": ("AD", 1.5), "mr": ("AP", 1.5), "hybrid_defense": (None, 0.75)}
 
 
 def score_parts(category, damage_type, tags, enemy_ad, enemy_ap):
     """[(puncte, motiv)] din care se aduna scorul. Motivul cu cele mai multe
     puncte e ce afisam: "de ce asta, la campionul asta"."""
-    parts = [(CATEGORY_BY_DAMAGE.get(category, {}).get(damage_type, 3),
-              f"campion {damage_type}")]
+    parts = [(CATEGORY_BY_DAMAGE.get(category, {}).get(damage_type, 3), f"{damage_type} champion")]
     for tag in tags or ():
         bonus = TAG_BONUS.get(tag, {}).get(category, 0)
         if bonus:
@@ -86,11 +84,11 @@ def score_parts(category, damage_type, tags, enemy_ad, enemy_ap):
     if weight:
         dmg_type, factor = weight
         if dmg_type is None:
-            parts.append(((enemy_ad + enemy_ap) * factor, "inamici"))
+            parts.append(((enemy_ad + enemy_ap) * factor, "enemy team"))
         elif dmg_type == "AD":
-            parts.append((enemy_ad * factor, "inamici AD"))
+            parts.append((enemy_ad * factor, "AD enemies"))
         elif dmg_type == "AP":
-            parts.append((enemy_ap * factor, "inamici AP"))
+            parts.append((enemy_ap * factor, "AP enemies"))
     return parts
 
 
@@ -101,7 +99,7 @@ def score_shard(category, damage_type, tags, enemy_ad, enemy_ap):
 
 PRICE = 750
 LEVEL = 9
-ITEM = "Stat Bonus"           # numele itemului Stat Anvil in datele de Mayhem
+ITEM = "Stat Bonus"  # numele itemului Stat Anvil in datele de Mayhem
 MIN_CORE = 2
 
 
@@ -113,24 +111,33 @@ def advise(level, gold, own_items, full, core, left_gold, left_items, next_gold)
     `left_gold`/`left_items`: ce mai lipseste din build; `next_gold`: itemul urmator.
     """
     out = {"left_gold": left_gold, "left_items": left_items}
-    progress = "Build complet." if not left_items else f"Pana la build complet: {left_items} iteme, ~{left_gold}g."
+    progress = (
+        "Full build." if not left_items else f"Until full build: {left_items} items, ~{left_gold}g."
+    )
     if ITEM in (own_items or ()):
-        out.update(state="use", when="Ai deja Stat Anvil: deschide-l si alege un shard.")
+        out.update(state="use", when="You already have a Stat Anvil: open it and choose a shard.")
     elif not isinstance(level, int) or level < LEVEL:
-        out.update(state="locked", when=f"Se deschide la nivel {LEVEL}. {progress}")
+        out.update(state="locked", when=f"Unlocks at level {LEVEL}. {progress}")
     elif core < MIN_CORE and not full:
-        out.update(state="wait", when=f"Mai intai {MIN_CORE} iteme terminate ({core} acum). {progress}")
+        out.update(state="wait", when=f"Finish {MIN_CORE} items first ({core} now). {progress}")
     elif not isinstance(gold, (int, float)) or gold < PRICE:
         need = PRICE - int(gold or 0)
-        out.update(state="gold", need=need, when=f"Mai ai nevoie de {need}g. {progress}")
+        out.update(state="gold", need=need, when=f"You need {need}g more. {progress}")
     elif left_items and int(gold) - PRICE < next_gold:
         # itemele inainte de consumabile: Anvil doar cand ajung banii si pentru itemul urmator
-        out.update(state="wait", when=f"Mai intai itemul urmator (~{next_gold}g, ai {int(gold)}g). "
-                                       f"Anvil cand ai {next_gold + PRICE}g. {progress}")
+        out.update(
+            state="wait",
+            when=f"Buy the next item first (~{next_gold}g, you have {int(gold)}g). "
+            f"Buy an Anvil when you have {next_gold + PRICE}g. {progress}",
+        )
     else:
         after = int(gold) - PRICE
-        tail = f" Dupa el ai {after}g: itemul urmator (~{next_gold}g) ajunge." if left_items and next_gold else ""
-        out.update(state="buy", when=f"Ia-l la urmatorul recall (750g). {progress}{tail}")
+        tail = (
+            f" Afterwards you have {after}g: enough for the next item (~{next_gold}g)."
+            if left_items and next_gold
+            else ""
+        )
+        out.update(state="buy", when=f"Buy it on your next recall (750g). {progress}{tail}")
     return out
 
 
@@ -163,12 +170,14 @@ def recommend(names, champion_tags, champ, enemies):
     for name in names:
         category = SHARD_CATEGORY.get(name, "hp")
         parts = score_parts(category, damage_type, tags, enemy_ad, enemy_ap)
-        entries.append({
-            "name": name,
-            "category": category,
-            "score": sum(p for p, _ in parts),
-            "why": max(parts)[1],
-        })
+        entries.append(
+            {
+                "name": name,
+                "category": category,
+                "score": sum(p for p, _ in parts),
+                "why": max(parts)[1],
+            }
+        )
 
     if entries:
         best = max(entries, key=lambda e: e["score"])

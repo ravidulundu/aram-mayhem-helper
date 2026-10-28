@@ -9,61 +9,61 @@
    "condition": { "itemStat": "heal", "countGte": 2,
                   "allyLacksCategory": "grievous_wounds" },
    "suggestCategory": "grievous_wounds",
-   "reason": "inamicii se vindeca, nimeni la noi n-are anti-heal"
+   "reason": "enemies heal; no ally has anti-heal"
   },
   {
    "id": "enemy_bought_armor",
    "condition": { "itemStat": "armor", "countGte": 2 },
-   "suggestCategory": "armor_pen",
-   "reason": "inamicii au cumparat armura"
+   "suggestCategory": "percent_armor_pen",
+   "reason": "enemies bought armor"
   },
   {
    "id": "enemy_bought_mr",
    "condition": { "itemStat": "mr", "countGte": 2 },
-   "suggestCategory": "magic_pen",
-   "reason": "inamicii au cumparat MR"
+   "suggestCategory": "percent_magic_pen",
+   "reason": "enemies bought magic resist"
   },
   {
    "id": "enemy_bought_health",
    "condition": { "itemStat": "hp", "countGte": 3 },
    "suggestCategory": "antitank",
-   "reason": "inamicii stivuiesc viata"
+   "reason": "enemies are stacking health"
   },
   {
    "id": "enemy_bought_healing",
    "condition": { "itemStat": "heal", "countGte": 2 },
    "suggestCategory": "grievous_wounds",
-   "reason": "inamicii au vindecare"
+   "reason": "enemies have healing"
   },
   {
    "id": "enemy_ap_heavy",
    "condition": { "team": "enemies", "damageType": "AP", "countGte": 3 },
    "suggestCategory": "magic_resist",
-   "reason": "3+ inamici AP"
+   "reason": "3+ AP enemies"
   },
   {
    "id": "enemy_ad_heavy",
    "condition": { "team": "enemies", "damageType": "AD", "countGte": 3 },
    "suggestCategory": "armor",
-   "reason": "3+ inamici AD"
+   "reason": "3+ AD enemies"
   },
   {
    "id": "enemy_sustain",
    "condition": { "team": "enemies", "tagIn": ["Support"], "countGte": 2 },
    "suggestCategory": "grievous_wounds",
-   "reason": "inamici cu multa vindecare"
+   "reason": "enemies have heavy healing"
   },
   {
    "id": "enemy_tank_heavy",
    "condition": { "team": "enemies", "tagIn": ["Tank"], "countGte": 2 },
    "suggestCategory": "antitank",
-   "reason": "2+ tancuri inamice"
+   "reason": "2+ enemy tanks"
   },
   {
    "id": "enemy_cc_heavy",
    "condition": { "team": "enemies", "tagIn": ["Tank", "Fighter"], "countGte": 3 },
    "suggestCategory": "tenacity",
-   "reason": "compozitie inamica cu mult CC"
+   "reason": "enemy team has heavy CC"
   }
  ],
 
@@ -78,15 +78,15 @@
   "grievous_wounds": ["Morellonomicon", "Executioner's Calling",
                       "Mortal Reminder", "Chempunk Chainsword", "Thornmail",
                       "Oblivion Orb", "Bramble Vest"],
-  "antitank": ["Blade of the Ruined King", "Liandry's Torment",
-               "Demonic Embrace", "Black Cleaver", "Lord Dominik's Regards",
-               "Serylda's Grudge", "Void Staff", "Kraken Slayer",
-               "Terminus", "Botrk", "Cryptbloom"],
+  "antitank": ["Blade of The Ruined King", "Liandry's Torment", "Demonic Embrace"],
   "tenacity": ["Mercury's Treads", "Silvermere Dawn", "Sterak's Gage",
                "Quicksilver Sash"],
   "armor_pen": ["Lord Dominik's Regards", "Serylda's Grudge", "Mortal Reminder",
                 "Black Cleaver", "The Collector", "Serpent's Fang",
                 "Edge of Night", "Youmuu's Ghostblade", "Hubris", "Opportunity"],
+  "percent_armor_pen": ["Lord Dominik's Regards", "Serylda's Grudge", "Mortal Reminder",
+                        "Black Cleaver", "Terminus"],
+  "percent_magic_pen": ["Void Staff", "Cryptbloom", "Terminus"],
   "magic_pen": ["Void Staff", "Cryptbloom", "Shadowflame", "Sorcerer's Shoes",
                 "Malignance", "Stormsurge", "Horizon Focus", "Liandry's Torment"]
  }

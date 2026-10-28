@@ -8,6 +8,7 @@ dispare cand se termina. Nu are nevoie de niciun click.
 """
 
 import json
+import logging
 import pathlib
 import sys
 import threading
@@ -16,6 +17,8 @@ import champ_stats
 import mayhem_logic as logic
 import tier_list
 from lcu_client import connect, find_lcu_process
+
+logger = logging.getLogger(__name__)
 
 DATA = pathlib.Path(__file__).with_name("champion_data.json")
 
@@ -30,14 +33,24 @@ MUTED = "#7a8899"
 
 # rampa cald -> rece, conventia de tier list pe care jucatorii o recunosc deja
 TIER_COLORS = {
-    "S+": "#ff4655", "S": "#ff9a3c", "A": "#ffd166",
-    "B": "#8ac926", "C": "#4a9de0", "D": "#6b7280",
+    "S+": "#ff4655",
+    "S": "#ff9a3c",
+    "A": "#ffd166",
+    "B": "#8ac926",
+    "C": "#4a9de0",
+    "D": "#6b7280",
     logic.UNRANKED: "#3f4650",
 }
 # text inchis pe insignele deschise, alb pe cele inchise
-TIER_FG = {"S+": "#ffffff", "S": "#2b1400", "A": "#3a2c00",
-           "B": "#182b00", "C": "#04203a", "D": "#ffffff",
-           logic.UNRANKED: "#c3cbd6"}
+TIER_FG = {
+    "S+": "#ffffff",
+    "S": "#2b1400",
+    "A": "#3a2c00",
+    "B": "#182b00",
+    "C": "#04203a",
+    "D": "#ffffff",
+    logic.UNRANKED: "#c3cbd6",
+}
 
 
 def load_champion_data():
@@ -57,7 +70,7 @@ class Monitor:
         self.phase = "waiting_for_client"
         self.assigned = None
         self.bench = []
-        self.team = []           # campionii coechipierilor (fara al tau)
+        self.team = []  # campionii coechipierilor (fara al tau)
         self.error = None
         self._client = None
         self._dumped = False
@@ -70,6 +83,7 @@ class Monitor:
             try:
                 self.cycle()
             except Exception as e:
+                logger.exception('lcu-app/app.py:run failed; preserving fallback')
                 # un monitor care moare in tacere e mai rau decat niciun
                 # monitor: notam si mergem mai departe
                 self.error = f"{type(e).__name__}: {e}"
@@ -127,14 +141,15 @@ class Monitor:
         try:
             snap = {"session": session}
             if self._client is not None:
-                for ep in ("/lol-champ-select/v1/pickable-champion-ids",
-                           "/lol-champ-select/v1/bannable-champion-ids"):
+                for ep in (
+                    "/lol-champ-select/v1/pickable-champion-ids",
+                    "/lol-champ-select/v1/bannable-champion-ids",
+                ):
                     got = self._client.get(ep)
                     if got is not None:
                         snap[ep.rsplit("/", 1)[-1]] = got
             path = pathlib.Path(__file__).with_name("_champselect.json")
-            path.write_text(json.dumps(snap, indent=1, ensure_ascii=False),
-                            encoding="utf-8")
+            path.write_text(json.dumps(snap, indent=1, ensure_ascii=False), encoding="utf-8")
         except OSError:
             pass
 
@@ -158,9 +173,11 @@ class Monitor:
         self.bench = [entry(cid) for cid in ids]
         # ce au ales ceilalti: apar si ei pe ecranul clientului, iar OCR-ul
         # cartilor personale trebuie sa-i ignore
-        self.team = [logic.describe(m["championId"], data, tiers, over)["name"]
-                     for m in session.get("myTeam") or []
-                     if m.get("championId") and m.get("championId") != mine]
+        self.team = [
+            logic.describe(m["championId"], data, tiers, over)["name"]
+            for m in session.get("myTeam") or []
+            if m.get("championId") and m.get("championId") != mine
+        ]
 
 
 def build_ui(mon):
@@ -182,33 +199,56 @@ def build_ui(mon):
 
     head = ctk.CTkFrame(frame, fg_color="transparent")
     head.pack(fill="x", padx=10, pady=(9, 6))
-    ctk.CTkLabel(head, text="ARAM MAYHEM", text_color=MUTED,
-                 font=("Segoe UI", 10, "bold")).pack(side="left")
-    ctk.CTkButton(head, text="X", width=18, height=18, fg_color="transparent",
-                  hover_color=CARD, text_color=MUTED, font=("Segoe UI", 10),
-                  command=lambda: (mon.stop.set(), root.destroy())).pack(side="right")
+    ctk.CTkLabel(head, text="ARAM MAYHEM", text_color=MUTED, font=("Segoe UI", 10, "bold")).pack(
+        side="left"
+    )
+    ctk.CTkButton(
+        head,
+        text="X",
+        width=18,
+        height=18,
+        fg_color="transparent",
+        hover_color=CARD,
+        text_color=MUTED,
+        font=("Segoe UI", 10),
+        command=lambda: (mon.stop.set(), root.destroy()),
+    ).pack(side="right")
 
     body = ctk.CTkFrame(frame, fg_color="transparent")
     body.pack(fill="both", expand=True, padx=10, pady=(0, 10))
 
     def card(parent, entry, label=None):
         color = TIER_COLORS.get(entry["tier"], TIER_COLORS[logic.UNRANKED])
-        row = ctk.CTkFrame(parent, fg_color=CARD, corner_radius=8,
-                           border_width=2 if entry.get("is_best") else 0,
-                           border_color=color)
+        row = ctk.CTkFrame(
+            parent,
+            fg_color=CARD,
+            corner_radius=8,
+            border_width=2 if entry.get("is_best") else 0,
+            border_color=color,
+        )
         row.pack(fill="x", pady=3)
-        ctk.CTkLabel(row, text=entry["tier"], width=34, height=24, corner_radius=6,
-                     fg_color=color, text_color=TIER_FG.get(entry["tier"], "#fff"),
-                     font=("Segoe UI", 12, "bold")).pack(side="left", padx=8, pady=7)
-        ctk.CTkLabel(row, text=entry["name"], text_color=TEXT, anchor="w",
-                     font=("Segoe UI", 13)).pack(side="left", padx=(2, 6))
+        ctk.CTkLabel(
+            row,
+            text=entry["tier"],
+            width=34,
+            height=24,
+            corner_radius=6,
+            fg_color=color,
+            text_color=TIER_FG.get(entry["tier"], "#fff"),
+            font=("Segoe UI", 12, "bold"),
+        ).pack(side="left", padx=8, pady=7)
+        ctk.CTkLabel(
+            row, text=entry["name"], text_color=TEXT, anchor="w", font=("Segoe UI", 13)
+        ).pack(side="left", padx=(2, 6))
         if label:
-            ctk.CTkLabel(row, text=label, text_color=color, anchor="e",
-                         font=("Segoe UI", 9, "bold")).pack(side="right", padx=8)
+            ctk.CTkLabel(
+                row, text=label, text_color=color, anchor="e", font=("Segoe UI", 9, "bold")
+            ).pack(side="right", padx=8)
 
     def section(text):
-        ctk.CTkLabel(body, text=text, text_color=MUTED, anchor="w",
-                     font=("Segoe UI", 9, "bold")).pack(fill="x", pady=(8, 1))
+        ctk.CTkLabel(
+            body, text=text, text_color=MUTED, anchor="w", font=("Segoe UI", 9, "bold")
+        ).pack(fill="x", pady=(8, 1))
 
     shown = {"visible": False}
 
@@ -222,15 +262,16 @@ def build_ui(mon):
             for w in body.winfo_children():
                 w.destroy()
             if mon.assigned:
-                section("CAMPIONUL TAU")
+                section("YOUR CHAMPION")
                 card(body, mon.assigned)
             if mon.bench:
                 section("BENCH")
                 for entry in mon.bench:
                     card(body, entry, "BEST" if entry["is_best"] else None)
             if not mon.assigned and not mon.bench:
-                ctk.CTkLabel(body, text="se incarca...", text_color=MUTED,
-                             font=("Segoe UI", 11)).pack(pady=12)
+                ctk.CTkLabel(body, text="loading...", text_color=MUTED, font=("Segoe UI", 11)).pack(
+                    pady=12
+                )
 
         root.after(500, refresh)
 
@@ -250,20 +291,25 @@ def selfcheck():
     assert not logic.is_mayhem_gameflow(None)
 
     # bench-ul vine sub doua forme, in functie de versiunea de client
-    assert logic.parse_bench({"benchChampions": [{"championId": 22},
-                                                 {"championId": 51}]}) == [22, 51]
+    assert logic.parse_bench({"benchChampions": [{"championId": 22}, {"championId": 51}]}) == [
+        22,
+        51,
+    ]
     assert logic.parse_bench({"benchChampionIds": [22, 51]}) == [22, 51]
     assert logic.parse_bench({"benchChampions": [{"championId": 0}, {}]}) == []
     assert logic.parse_bench({}) == []
 
     # campionul propriu se afla incrucisand cell id-ul local cu myTeam
-    session = {"localPlayerCellId": 2,
-               "myTeam": [{"cellId": 1, "championId": 22},
-                          {"cellId": 2, "championId": 875}]}
+    session = {
+        "localPlayerCellId": 2,
+        "myTeam": [{"cellId": 1, "championId": 22}, {"cellId": 2, "championId": 875}],
+    }
     assert logic.get_local_player_champion_id(session) == 875
     assert logic.get_local_player_champion_id({"myTeam": []}) is None
-    assert logic.get_local_player_champion_id({"localPlayerCellId": 9,
-                                               "myTeam": [{"cellId": 1}]}) is None
+    assert (
+        logic.get_local_player_champion_id({"localPlayerCellId": 9, "myTeam": [{"cellId": 1}]})
+        is None
+    )
 
     # tier: nume exact, nume prin override, nume necunoscut
     assert logic.get_tier("Sett", tiers, over) in tier_list.TIER_ORDER
@@ -276,9 +322,13 @@ def selfcheck():
     # campioni alesi dupa tier, nu dupa nume: tier-urile se schimba la fiecare patch
     ranked = sorted((n for n in tiers if n in ids), key=lambda n: logic.tier_rank(tiers[n]))
     top, low = ranked[0], ranked[-1]
-    mid = next(n for n in ranked if logic.tier_rank(tiers[n]) not in (logic.tier_rank(tiers[top]),
-                                                                       logic.tier_rank(tiers[low])))
-    twin = next(n for n in ranked[1:] if tiers[n] == tiers[top])         # acelasi tier cu `top`
+    mid = next(
+        n
+        for n in ranked
+        if logic.tier_rank(tiers[n])
+        not in (logic.tier_rank(tiers[top]), logic.tier_rank(tiers[low]))
+    )
+    twin = next(n for n in ranked[1:] if tiers[n] == tiers[top])  # acelasi tier cu `top`
     picks = [ids[mid], ids[top], ids[low]]
     assert logic.best_pick(picks, data, tiers, over) == ids[top]
     assert logic.best_pick([], data, tiers, over) is None
@@ -293,34 +343,55 @@ def selfcheck():
     # BEST se compara si cu campionul propriu, nu doar intre cei de pe bench:
     # altfel te trimite la reroll chiar cand ai deja cel mai bun pick
     mon = Monitor(data)
-    mon._read_session({"localPlayerCellId": 1,
-                       "myTeam": [{"cellId": 1, "championId": ids[top]}],
-                       "benchChampionIds": [ids[mid], ids[low]]})
-    assert mon.assigned["is_best"], mon.assigned          # tier-ul cel mai bun bate restul
+    mon._read_session(
+        {
+            "localPlayerCellId": 1,
+            "myTeam": [{"cellId": 1, "championId": ids[top]}],
+            "benchChampionIds": [ids[mid], ids[low]],
+        }
+    )
+    assert mon.assigned is not None
+    assert mon.assigned["is_best"], mon.assigned  # tier-ul cel mai bun bate restul
     assert not any(e["is_best"] for e in mon.bench), mon.bench
 
-    mon._read_session({"localPlayerCellId": 1,
-                       "myTeam": [{"cellId": 1, "championId": ids[low]}],
-                       "benchChampionIds": [ids[top], ids[mid]]})
-    assert not mon.assigned["is_best"]                    # tier-ul cel mai slab pierde
+    mon._read_session(
+        {
+            "localPlayerCellId": 1,
+            "myTeam": [{"cellId": 1, "championId": ids[low]}],
+            "benchChampionIds": [ids[top], ids[mid]],
+        }
+    )
+    assert mon.assigned is not None
+    assert not mon.assigned["is_best"]  # tier-ul cel mai slab pierde
     assert [e["name"] for e in mon.bench if e["is_best"]] == [top]
     # coechipierii: tinuti separat, ca OCR-ul sa nu-i ia drept cartile tale
-    mon._read_session({"localPlayerCellId": 1,
-                       "myTeam": [{"cellId": 1, "championId": ids[top]},
-                                  {"cellId": 2, "championId": ids[mid]}, {"cellId": 3}],
-                       "benchChampionIds": []})
+    mon._read_session(
+        {
+            "localPlayerCellId": 1,
+            "myTeam": [
+                {"cellId": 1, "championId": ids[top]},
+                {"cellId": 2, "championId": ids[mid]},
+                {"cellId": 3},
+            ],
+            "benchChampionIds": [],
+        }
+    )
     assert mon.team == [mid], mon.team
 
     # la tier egal ramane pe al tau: un reroll lateral nu castiga nimic
-    mon._read_session({"localPlayerCellId": 1,
-                       "myTeam": [{"cellId": 1, "championId": ids[top]}],
-                       "benchChampionIds": [ids[twin]]})      # acelasi tier
+    mon._read_session(
+        {
+            "localPlayerCellId": 1,
+            "myTeam": [{"cellId": 1, "championId": ids[top]}],
+            "benchChampionIds": [ids[twin]],
+        }
+    )  # acelasi tier
+    assert mon.assigned is not None
     assert mon.assigned["is_best"] and not mon.bench[0]["is_best"]
 
     # reconciliere: fiecare campion din Data Dragon trebuie sa aiba tier.
     # daca u.gg ramane in urma cu campioni noi, aici se vede imediat.
-    missing = sorted({n for n in data.values()
-                      if logic.get_tier(n, tiers, over) == logic.UNRANKED})
+    missing = sorted({n for n in data.values() if logic.get_tier(n, tiers, over) == logic.UNRANKED})
     if missing:
         print(f"campioni fara tier ({len(missing)}): {', '.join(missing)}")
     assert len(missing) <= 3, f"prea multi campioni fara tier: {missing}"

@@ -27,10 +27,16 @@ _before = (STATS.get("previous") or {}).get("champions", {})
 
 
 # modificatorii de balans pe care Riot ii aplica fiecarui campion in Mayhem
-_LABELS = {"damageDealt": "DMG DAT", "damageTaken": "DMG PRIMIT",
-           "abilityHaste": "ABILITY HASTE", "tenacity": "TENACITY",
-           "healing": "VINDECARE", "shielding": "SCUTURI",
-           "attackSpeed": "ATK SPEED", "energyRegen": "REGEN ENERGIE"}
+_LABELS = {
+    "damageDealt": "DMG DEALT",
+    "damageTaken": "DMG TAKEN",
+    "abilityHaste": "ABILITY HASTE",
+    "tenacity": "TENACITY",
+    "healing": "HEALING",
+    "shielding": "SHIELDING",
+    "attackSpeed": "ATK SPEED",
+    "energyRegen": "ENERGY REGEN",
+}
 
 
 def _fmt(mod):
@@ -47,8 +53,10 @@ def balance(name):
     """
     b = (_now.get(name) or {}).get("balance") or {}
     mods = [_fmt(m) for m in b.get("modifiers") or []]
-    changes = [(a.get("key", ""), a.get("ability", ""), a.get("lines") or [])
-               for a in b.get("abilityChanges") or []]
+    changes = [
+        (a.get("key", ""), a.get("ability", ""), a.get("lines") or [])
+        for a in b.get("abilityChanges") or []
+    ]
     return mods, changes
 
 
@@ -77,5 +85,9 @@ def info(name):
 
 def versions():
     """(patch u.gg, patch u.gg anterior, versiune ARAMKit, anterioara)."""
-    return (tier_list.PATCH, tier_list.PREVIOUS_PATCH, STATS.get("version"),
-            (STATS.get("previous") or {}).get("version"))
+    return (
+        tier_list.PATCH,
+        tier_list.PREVIOUS_PATCH,
+        STATS.get("version"),
+        (STATS.get("previous") or {}).get("version"),
+    )

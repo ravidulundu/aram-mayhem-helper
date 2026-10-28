@@ -10,18 +10,24 @@ diferenta.
 """
 
 import json
+import logging
 import pathlib
 import time
 
 import psutil
 from PIL import Image, ImageChops, ImageOps
 
-MINIMAP_PER_SCALE = 0.1446     # latimea hartii / (inaltimea jocului * MinimapScale)
-HUD_HALF_BASE = 0.228          # jumatatea HUD-ului (pana la aurul din dreapta), la GlobalScale 0
-HUD_HALF_PER_SCALE = 0.20      # estimare prudenta: HUD-ul creste cu GlobalScale
+logger = logging.getLogger(__name__)
 
-_FALLBACKS = (r"C:\Riot Games\League of Legends", r"D:\Riot Games\League of Legends",
-              r"E:\Riot Games\League of Legends")
+MINIMAP_PER_SCALE = 0.1446  # latimea hartii / (inaltimea jocului * MinimapScale)
+HUD_HALF_BASE = 0.228  # jumatatea HUD-ului (pana la aurul din dreapta), la GlobalScale 0
+HUD_HALF_PER_SCALE = 0.20  # estimare prudenta: HUD-ul creste cu GlobalScale
+
+_FALLBACKS = (
+    r"C:\Riot Games\League of Legends",
+    r"D:\Riot Games\League of Legends",
+    r"E:\Riot Games\League of Legends",
+)
 
 _cache = {"path": None, "mtime": None, "values": {}, "retry_at": 0.0}
 
@@ -30,14 +36,17 @@ def _find_config():
     """Calea PersistedSettings.json: din procesul jocului/clientului, apoi din locurile uzuale."""
     try:
         for proc in psutil.process_iter(["name", "exe"]):
-            if proc.info["name"] in ("League of Legends.exe", "LeagueClient.exe") and proc.info["exe"]:
+            if (
+                proc.info["name"] in ("League of Legends.exe", "LeagueClient.exe")
+                and proc.info["exe"]
+            ):
                 exe = pathlib.Path(proc.info["exe"])
                 for root in (exe.parent.parent, exe.parent):
                     cfg = root / "Config" / "PersistedSettings.json"
                     if cfg.exists():
                         return cfg
     except Exception:
-        pass
+        logger.exception('hud_settings.py:_find_config failed; preserving fallback')
     for root in _FALLBACKS:
         cfg = pathlib.Path(root) / "Config" / "PersistedSettings.json"
         if cfg.exists():
@@ -90,8 +99,10 @@ def read():
 
 
 HUD_TALL_BASE = 0.092  # inaltimea HUD-ului cu itemele (chenar inclus), la GlobalScale 0
-PANEL_TALL = 2.6       # destul cat sa incapa itemul urmator si sfatul de vanzare, tot sub inaltimea hartii
-EDGE = 0.002           # cat lasam intre panou si chenarele vecine, din inaltime
+PANEL_TALL = (
+    2.6  # destul cat sa incapa itemul urmator si sfatul de vanzare, tot sub inaltimea hartii
+)
+EDGE = 0.002  # cat lasam intre panou si chenarele vecine, din inaltime
 
 
 # --- harta masurata de pe ecran --------------------------------------------------------
@@ -102,8 +113,8 @@ EDGE = 0.002           # cat lasam intre panou si chenarele vecine, din inaltime
 # toata in interiorul hartii, iar marginea trebuie sa fie o linie continua pe toata banda:
 # bare de viata, efecte, chenarele cartilor de augment au muchii tari, dar nu drepte si lungi.
 
-BAND_TOP, BAND_BOTTOM = 0.30, 0.255     # din inaltimea jocului, masurat de jos
-EDGE_MIN, COHERENCE = 20, 0.9           # diferenta de luminozitate, partea din banda
+BAND_TOP, BAND_BOTTOM = 0.30, 0.255  # din inaltimea jocului, masurat de jos
+EDGE_MIN, COHERENCE = 20, 0.9  # diferenta de luminozitate, partea din banda
 _mm = {"key": None, "px": None, "next": 0.0, "last": None, "n": 0, "left": None}
 
 
@@ -121,13 +132,13 @@ def detect_minimap(img, H, est=None):
     w = img.width
     est = est or 0.334 * H
     diff = ImageChops.difference(img, ImageChops.offset(img, 2, 0)).convert("L")
-    mask = diff.point(lambda v: 255 if v > EDGE_MIN else 0)
-    cols = list(mask.resize((w, 1), Image.BOX).getdata())
+    mask = diff.point([255 if v > EDGE_MIN else 0 for v in range(256)])
+    cols = list(mask.resize((w, 1), Image.Resampling.BOX).tobytes())
     lo, hi = max(2, int(w - 1.35 * est)), min(w - 2, int(w - 0.75 * est))
     # cea mai continua linie (la egalitate, cea mai din stanga = marginea exterioara a ramei)
     best = max(range(lo, hi), key=lambda x: (cols[x] // 13, -x), default=None)
     if best is None or cols[best] < 255 * COHERENCE:
-        return None                     # nicio margine clara: nu ghicim
+        return None  # nicio margine clara: nu ghicim
     return w - best + 1
 
 
@@ -154,21 +165,27 @@ def measured_minimap(box, grab, front, est=None, hint=None):
         top = min(BAND_TOP, max(BAND_BOTTOM + 0.015, 0.97 * est / H)) if est else BAND_TOP
         y0, y1 = int(b - top * H), int(b - BAND_BOTTOM * H)
         found = {}
-        for left, band in ((False, (int(r - 0.8 * H), y0, r, y1)), (True, (l, y0, int(l + 0.8 * H), y1))):
+        for left, band in (
+            (False, (int(r - 0.8 * H), y0, r, y1)),
+            (True, (l, y0, int(l + 0.8 * H), y1)),
+        ):
             img = grab(band)
             k = img.info.get("reduce", 1)
             px = detect_minimap(ImageOps.mirror(img) if left else img, H / k, est and est / k)
             if px:
                 found[left] = px * k
     except Exception:
+        logger.exception('hud_settings.py:measured_minimap failed; preserving fallback')
         return _mm["px"], _mm["left"]
     if not found:
         _mm["last"], _mm["n"] = None, 0
         return _mm["px"], _mm["left"]
-    side = next((c for c in (hint, _mm["left"], False, True) if c in found))   # indiciu, apoi ce stiam, apoi dreapta
+    side = next(
+        c for c in (hint, _mm["left"], False, True) if c in found
+    )  # indiciu, apoi ce stiam, apoi dreapta
     px = found[side]
     if _mm["left"] is not None and side != _mm["left"]:
-        _mm.update(px=None, last=None, n=0)          # alta parte: masuratorile vechi nu mai conteaza
+        _mm.update(px=None, last=None, n=0)  # alta parte: masuratorile vechi nu mai conteaza
     same = _mm["last"] and abs(_mm["last"] - px) <= 3
     _mm["n"] = _mm["n"] + 1 if same else 1
     _mm["last"] = px
@@ -197,12 +214,12 @@ def area(box_w, box_h, settings=None, minimap_px=None, flipped=None):
     hud_tall = HUD_TALL_BASE * H * hud_half / (HUD_HALF_BASE * H)
     edge = EDGE * H
     flipped = s.get("FlipMiniMap") == 1 if flipped is None else flipped
-    if flipped:                              # harta in stanga: golul dintre harta si HUD
+    if flipped:  # harta in stanga: golul dintre harta si HUD
         x0, x1 = minimap + edge, box_w / 2 - hud_half - edge
         x1 = max(x1, x0 + 0.18 * H)
-    else:                                    # harta in dreapta: golul dintre HUD si harta
+    else:  # harta in dreapta: golul dintre HUD si harta
         x0, x1 = box_w / 2 + hud_half + edge, box_w - minimap - edge
-        x0 = min(x0, x1 - 0.18 * H)          # oricat de mare e HUD-ul, panoul ramane lizibil
+        x0 = min(x0, x1 - 0.18 * H)  # oricat de mare e HUD-ul, panoul ramane lizibil
     return x0, box_h - min(hud_tall * PANEL_TALL, minimap), x1, box_h
 
 

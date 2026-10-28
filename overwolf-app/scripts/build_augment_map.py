@@ -20,8 +20,10 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 OUT = ROOT / "data" / "augment-map.json"
 GLOBAL = ROOT / "data" / "augments-global.json"
 
-URL = ("https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data"
-       "/global/default/v1/cherry-augments.json")
+URL = (
+    "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data"
+    "/global/default/v1/cherry-augments.json"
+)
 # CommunityDragon respinge user-agent-ul default al lui urllib
 HEADERS = {"User-Agent": "Mozilla/5.0"}
 
@@ -48,23 +50,29 @@ def main():
             "rarity": RARITY.get(entry.get("rarity"), "unknown"),
         }
 
-    OUT.write_text(json.dumps(mapping, indent=1, ensure_ascii=False, sort_keys=True),
-                   encoding="utf-8")
+    OUT.write_text(
+        json.dumps(mapping, indent=1, ensure_ascii=False, sort_keys=True), encoding="utf-8"
+    )
 
     # verificare: fiecare augment clasat pe u.gg trebuie sa aiba un id intern,
     # altfel nu-l putem recunoaste cand GEP il trimite in joc
     tiers = json.loads(GLOBAL.read_text(encoding="utf-8"))
-    ranked = {n: rarity
-              for rarity, block in tiers.items() if isinstance(block, dict)
-              for names in block.values() for n in names}
+    ranked = {
+        n: rarity
+        for rarity, block in tiers.items()
+        if isinstance(block, dict)
+        for names in block.values()
+        for n in names
+    }
 
     live = {}
     for key, val in mapping.items():
         live.setdefault(val["name"], []).append((key, val["rarity"]))
 
     missing = sorted(n for n in ranked if n not in live)
-    mismatch = [(n, r, live[n][0][1]) for n, r in ranked.items()
-                if n in live and live[n][0][1] != r]
+    mismatch = [
+        (n, r, live[n][0][1]) for n, r in ranked.items() if n in live and live[n][0][1] != r
+    ]
 
     aram = sum(1 for k in mapping if k.startswith("ARAM_"))
     print(f"{len(mapping)} augmente ({aram} de Mayhem) -> {OUT.name}")

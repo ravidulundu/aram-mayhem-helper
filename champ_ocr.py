@@ -13,21 +13,25 @@ Ruleaza doar cat esti in champ select cu clientul in prim-plan.
 """
 
 import asyncio
+import logging
 import re
 import threading
+from collections.abc import Callable, Iterable
 
 import win32gui
 
-MIN_NAME = 3          # "Vi" ar aparea in orice text; sub 3 litere nu cautam
+logger = logging.getLogger(__name__)
+
+MIN_NAME = 3  # "Vi" ar aparea in orice text; sub 3 litere nu cautam
 MAX_OFFERS = 6
-INTERVAL = 1.5        # secunde intre citiri; champ select dureaza ~1 minut
+INTERVAL = 1.5  # secunde intre citiri; champ select dureaza ~1 minut
 
 
-def _norm(text):
+def _norm(text: str) -> str:
     return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9 ]+", " ", text.lower())).strip()
 
 
-def find_names(text, names):
+def find_names(text: str, names: Iterable[str]) -> list[str]:
     """Numele de campioni din text, in ordinea in care apar."""
     hay = _norm(text)
     hits = []
@@ -42,35 +46,42 @@ def find_names(text, names):
 
 
 class ChampSelectReader:
-    def __init__(self, champion_names, active, known):
+    def __init__(
+        self,
+        champion_names: Iterable[str],
+        active: Callable[[], bool],
+        known: Callable[[], Iterable[str]],
+    ) -> None:
         """active(): True cat timp e champ select. known(): numele deja afisate din LCU."""
         self.names = sorted(set(champion_names))
         self.active = active
         self.known = known
-        self.offers = []
-        self.pins = {}           # nume -> (x, y) de ecran: deasupra numelui de pe card
+        self.offers: list[str] = []
+        self.pins: dict[str, tuple[float, float]] = {}  # screen coordinates above card names
         self.stop = threading.Event()
-        self._prev = set()
+        self._prev: set[str] = set()
 
-    def run(self):
+    def run(self) -> None:
         threading.Thread(target=self._loop, daemon=True).start()
 
-    def _loop(self):
+    def _loop(self) -> None:
         while not self.stop.is_set():
             if self.active():
                 try:
                     self._cycle()
                 except Exception:
-                    pass        # OCR-ul de aici e un plus, nu opreste aplicatia
+                    logger.exception('champ_ocr.py:_loop failed; preserving fallback')
+                    # OCR-ul de aici e un plus, nu opreste aplicatia
             elif self.offers:
                 self.offers, self.pins, self._prev = [], {}, set()
             self.stop.wait(INTERVAL)
 
-    def _cycle(self):
-        import ocr_augments      # lazy: ingame-app intra in sys.path dupa import-ul asta
+    def _cycle(self) -> None:
+        import ocr_augments  # lazy: ingame-app intra in sys.path dupa import-ul asta
+
         hwnd = ocr_augments.find_client_window()
         if hwnd is None or win32gui.GetForegroundWindow() != hwnd:
-            return          # nu citim alte ferestre peste client
+            return  # nu citim alte ferestre peste client
         rect = ocr_augments.game_rect(hwnd)
         img = ocr_augments.grab(rect)
         k = img.info.get("reduce", 1)

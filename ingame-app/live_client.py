@@ -67,19 +67,29 @@ def get_roster():
     if not players:
         return None
 
-    local_name = active if isinstance(active, str) else None
-    local_team = None
-    for p in players:
-        if p.get("summonerName") == local_name or p.get("riotIdGameName") == local_name:
-            local_team = p.get("team")
-            break
+    local_name = active if isinstance(active, str) and active else None
+
+    def team_for(name):
+        return next(
+            (
+                p.get("team")
+                for p in players
+                if name and name in (p.get("summonerName"), p.get("riotIdGameName"))
+            ),
+            None,
+        )
+
+    local_team = team_for(local_name)
 
     if local_team is None:
         # activeplayername poate lipsi in unele moduri; fallback simplu:
         # jucatorul local e cel al carui items/abilities sunt disponibile
         active_full = get("/activeplayer")
         if isinstance(active_full, dict):
-            local_name = active_full.get("summonerName") or local_name
+            local_name = (
+                active_full.get("summonerName") or active_full.get("riotIdGameName") or local_name
+            )
+            local_team = team_for(local_name)
 
     allies, enemies, local_champ = [], [], None
     enemy_items, ally_items, own_items, spell_augments = [], [], [], []
@@ -87,22 +97,31 @@ def get_roster():
         champ = p.get("championName")
         if not champ:
             continue
-        is_local = p.get("summonerName") == local_name or p.get("riotIdGameName") == local_name
+        is_local = bool(local_name) and local_name in (
+            p.get("summonerName"),
+            p.get("riotIdGameName"),
+        )
         if is_local:
             local_champ = champ
         if local_team is None:
             continue
 
-        names = [label for label in (item_label(i) for i in (p.get("items") or []))
-                 if label]
+        names = [label for label in (item_label(i) for i in (p.get("items") or [])) if label]
         if p.get("team") == local_team:
             allies.append(champ)
             if is_local:
-                own_items.extend(names)     # ce ai deja cumparat
+                own_items.extend(names)  # ce ai deja cumparat
                 # augmentele care dau un summoner spell (Clown College, Brass Blast...) se vad in numele lui
-                spell_augments = [m.group(1) for sp in (p.get("summonerSpells") or {}).values()
-                                  for m in [re.search(r"Augment_ARAM_([A-Za-z0-9]+?)_",
-                                                      str(sp.get("rawDisplayName") or ""))] if m]
+                spell_augments = [
+                    m.group(1)
+                    for sp in (p.get("summonerSpells") or {}).values()
+                    for m in [
+                        re.search(
+                            r"Augment_ARAM_([A-Za-z0-9]+?)_", str(sp.get("rawDisplayName") or "")
+                        )
+                    ]
+                    if m
+                ]
             else:
                 # itemii coechipierilor conteaza pentru golurile de echipa:
                 # daca nimeni n-a luat anti-heal, trebuie sa-l iei tu
@@ -115,9 +134,22 @@ def get_roster():
 
     if local_team is None:
         # nu am putut determina echipa: mai bine gol decat gresit
-        return {"allies": [], "enemies": [], "enemy_items": [], "ally_items": [],
-                "own_items": own_items, "spell_augments": spell_augments, "local_champion": local_champ}
+        return {
+            "allies": [],
+            "enemies": [],
+            "enemy_items": [],
+            "ally_items": [],
+            "own_items": own_items,
+            "spell_augments": spell_augments,
+            "local_champion": local_champ,
+        }
 
-    return {"allies": allies, "enemies": enemies, "enemy_items": enemy_items,
-            "ally_items": ally_items, "own_items": own_items, "spell_augments": spell_augments,
-            "local_champion": local_champ}
+    return {
+        "allies": allies,
+        "enemies": enemies,
+        "enemy_items": enemy_items,
+        "ally_items": ally_items,
+        "own_items": own_items,
+        "spell_augments": spell_augments,
+        "local_champion": local_champ,
+    }

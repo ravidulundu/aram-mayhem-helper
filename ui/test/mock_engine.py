@@ -4,6 +4,7 @@ bug raspunde fals). Pornit de main.js cand exista ARAM_MOCK=<fisier>.
 
     python mock_engine.py <scenariu.json>
 """
+
 import json
 import pathlib
 import sys
@@ -34,15 +35,28 @@ def replay():
         time.sleep(0.3)
 
 
-emit({"t": "hello", "version": "test", "icons": str(ROOT / "ingame-app" / "data" / "icons"),
-      "counts": {"champions": 173, "augments": 535, "builds": 173}})
+emit(
+    {
+        "t": "hello",
+        "version": "test",
+        "icons": str(ROOT / "ingame-app" / "data" / "icons"),
+        "counts": {"champions": 173, "augments": 535, "builds": 173},
+    }
+)
 threading.Thread(target=replay, daemon=True).start()
 for raw in sys.stdin:
     msg = json.loads(raw)
     if msg.get("cmd") == "quit":
         break
     if msg.get("cmd") == "diag":
-        emit({"t": "reply", "id": msg["id"], "text": "versiune: test\nwindows: test\nfaza: test"})
+        emit({"t": "reply", "id": msg["id"], "text": "version: test\nwindows: test\nphase: test"})
     elif msg.get("cmd") == "report":
-        emit({"t": "reply", "id": msg["id"], "ok": False, "text": "Mod de test: raportul nu pleaca."})
+        emit(
+            {
+                "t": "reply",
+                "id": msg["id"],
+                "ok": False,
+                "text": "Test mode: the report is not sent.",
+            }
+        )
     print(json.dumps(msg), file=sys.stderr, flush=True)

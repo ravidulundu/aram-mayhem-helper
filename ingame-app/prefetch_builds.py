@@ -19,18 +19,34 @@ ruleaza.
 """
 
 import json
+import logging
 import pathlib
 import sys
 import time
 
 from build_scraper import cache_path, scrape
 
+logger = logging.getLogger(__name__)
+
 DATA = pathlib.Path(__file__).with_name("data")
 
 # un set rezonabil ca sa nu astepti scraping-ul tuturor celor 173 daca nu vrei
 POPULAR = [
-    "Sett", "Jinx", "Ahri", "Yasuo", "Lux", "Vayne", "Miss Fortune", "Caitlyn",
-    "Zed", "Ezreal", "Thresh", "Leona", "Garen", "Darius", "Katarina",
+    "Sett",
+    "Jinx",
+    "Ahri",
+    "Yasuo",
+    "Lux",
+    "Vayne",
+    "Miss Fortune",
+    "Caitlyn",
+    "Zed",
+    "Ezreal",
+    "Thresh",
+    "Leona",
+    "Garen",
+    "Darius",
+    "Katarina",
 ]
 
 
@@ -58,6 +74,7 @@ def main():
         try:
             build = scrape(champ, headless=not headed)
         except Exception as e:
+            logger.exception('ingame-app/prefetch_builds.py:main failed; preserving fallback')
             build = None
             print(f"  [{i}/{len(champs)}] {champ}: eroare {type(e).__name__}: {e}")
         if build:
